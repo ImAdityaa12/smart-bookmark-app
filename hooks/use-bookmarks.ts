@@ -107,6 +107,13 @@ export function useBookmarks(user: any) {
             setTotalCount(prev => Math.max(0, prev - 1))
           } else if (payload.eventType === 'UPDATE') {
             const updated = payload.new as Bookmark
+            
+            // If we already handled this update (via API response), ignore realtime
+            if (processedIds.current.has(`${updated.id}-update`)) {
+              processedIds.current.delete(`${updated.id}-update`)
+              return
+            }
+
             setBookmarks((current) =>
               current.map(b => (b.id === updated.id ? { ...updated, clientId: b.clientId } : b))
             )
@@ -224,6 +231,9 @@ export function useBookmarks(user: any) {
     if (id.startsWith('temp-')) return
     
     const newState = !currentState
+    // Mark this update as processed locally
+    processedIds.current.add(`${id}-update`)
+
     setBookmarks((current) =>
       current.map((b) => (b.id === id ? { ...b, is_quick_access: newState } : b))
     )

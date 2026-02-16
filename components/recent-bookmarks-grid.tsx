@@ -7,8 +7,7 @@ import { useState, useMemo } from 'react'
 function getFaviconUrl(url: string) {
   try {
     const domain = new URL(url).hostname
-    // Using a higher resolution favicon service or clearbit for better icons
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
   } catch {
     return null
   }
@@ -16,9 +15,10 @@ function getFaviconUrl(url: string) {
 
 interface RecentBookmarksGridProps {
   bookmarks: Bookmark[]
+  onRemove: (id: string, currentState: boolean) => void
 }
 
-export function RecentBookmarksGrid({ bookmarks }: RecentBookmarksGridProps) {
+export function RecentBookmarksGrid({ bookmarks, onRemove }: RecentBookmarksGridProps) {
   const [page, setPage] = useState(0)
   const ITEMS_PER_PAGE = 4
 
@@ -46,27 +46,27 @@ export function RecentBookmarksGrid({ bookmarks }: RecentBookmarksGridProps) {
   return (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-4 ml-1">
-        <h3 className="text-[13px] font-bold text-[#6B7280] uppercase tracking-wider">
+        <h3 className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider">
           Quick Access
         </h3>
         {totalPages > 1 && (
           <div className="flex items-center gap-2">
             <button 
               onClick={prevPage}
-              className="p-1 text-[#6B7280] hover:text-[#2563EB] transition-colors"
+              className="p-1 text-[#6B7280] hover:text-[#2563EB] transition-colors cursor-pointer"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <span className="text-[11px] font-bold text-[#9CA3AF]">
+            <span className="text-[10px] font-bold text-[#9CA3AF]">
               {page + 1} / {totalPages}
             </span>
             <button 
               onClick={nextPage}
-              className="p-1 text-[#6B7280] hover:text-[#2563EB] transition-colors"
+              className="p-1 text-[#6B7280] hover:text-[#2563EB] transition-colors cursor-pointer"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
               </svg>
             </button>
@@ -74,46 +74,62 @@ export function RecentBookmarksGrid({ bookmarks }: RecentBookmarksGridProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-4 px-1">
         <AnimatePresence mode="wait">
           {displayedItems.map((bookmark) => {
             const faviconUrl = getFaviconUrl(bookmark.url)
             return (
-              <motion.a
-                key={(bookmark as any).clientId || bookmark.id}
-                href={bookmark.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex flex-col items-center gap-2 group"
-              >
-                <div className="w-full aspect-square bg-white rounded-[22%] shadow-[0_4px_12px_rgba(0,0,0,0.08)] flex items-center justify-center border border-[#E5E7EB] group-hover:border-[#2563EB] group-hover:shadow-[0_8px_20px_rgba(37,99,235,0.15)] transition-all duration-300 overflow-hidden relative p-3">
-                  {faviconUrl ? (
-                    <img 
-                      src={faviconUrl} 
-                      alt="" 
-                      className="w-full h-full object-contain"
-                      onError={(e) => (e.currentTarget.style.display = 'none')}
-                    />
-                  ) : (
-                    <div className="text-2xl font-bold text-[#2563EB]">
-                      {bookmark.title[0].toUpperCase()}
+              <div key={(bookmark as any).clientId || bookmark.id} className="relative group">
+                <motion.a
+                  href={bookmark.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  whileHover={{ y: -4 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex flex-col items-center gap-2.5"
+                >
+                  <div className="relative">
+                    <div className="w-16 h-16 bg-white rounded-[22%] shadow-[0_4px_12px_rgba(0,0,0,0.08)] flex items-center justify-center border border-[#E5E7EB] group-hover:border-[#2563EB] group-hover:shadow-[0_8px_20px_rgba(37,99,235,0.15)] transition-all duration-300 overflow-hidden relative p-3.5">
+                      {faviconUrl ? (
+                        <img 
+                          src={faviconUrl} 
+                          alt="" 
+                          className="w-full h-full object-contain"
+                          onError={(e) => (e.currentTarget.style.display = 'none')}
+                        />
+                      ) : (
+                        <div className="text-xl font-bold text-[#2563EB]">
+                          {bookmark.title[0].toUpperCase()}
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {bookmark.is_quick_access && (
-                    <div className="absolute top-1 right-1">
-                      <div className="w-2 h-2 bg-[#2563EB] rounded-full shadow-[0_0_8px_rgba(37,99,235,0.6)]" />
-                    </div>
-                  )}
-                </div>
-                <span className="text-[11px] sm:text-[12px] font-semibold text-[#374151] truncate w-full text-center group-hover:text-[#2563EB]">
-                  {bookmark.title}
-                </span>
-              </motion.a>
+
+                    {/* Remove from Quick Access Button - Perfectly Positioned */}
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onRemove(bookmark.id, bookmark.is_quick_access);
+                      }}
+                      className="absolute -top-1.5 -right-1.5 z-20 w-6 h-6 bg-white border border-[#E5E7EB] text-[#6B7280] hover:text-[#2563EB] rounded-full shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer"
+                      title="Remove from Quick Access"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </motion.button>
+                  </div>
+                  
+                  <span className="text-[11px] font-semibold text-[#374151] truncate w-full text-center group-hover:text-[#2563EB] transition-colors px-1">
+                    {bookmark.title}
+                  </span>
+                </motion.a>
+              </div>
             )
           })}
         </AnimatePresence>

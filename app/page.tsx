@@ -92,7 +92,10 @@ export default function Home() {
         />
 
         {!searchQuery && !searching && !isSwitchingPage && (
-          <RecentBookmarksGrid bookmarks={bookmarks} />
+          <RecentBookmarksGrid 
+            bookmarks={bookmarks} 
+            onRemove={toggleQuickAccess} 
+          />
         )}
 
         <SearchBar
