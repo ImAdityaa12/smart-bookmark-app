@@ -1,8 +1,5 @@
 'use client'
 
-import { createClient } from '@/utils/supabase/client'
-import { useEffect, useState } from 'react'
-
 type Bookmark = {
   id: string
   title: string
@@ -11,65 +8,10 @@ type Bookmark = {
   user_id: string
 }
 
-export function BookmarkList({ initialBookmarks, userId, onOptimisticAdd }: { 
-  initialBookmarks: Bookmark[], 
-  userId: string,
-  onOptimisticAdd?: (callback: (bookmark: Omit<Bookmark, 'id' | 'created_at'>) => void) => void
+export function BookmarkList({ bookmarks, onDelete }: {
+  bookmarks: Bookmark[]
+  onDelete: (id: string) => void
 }) {
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>(initialBookmarks)
-  const supabase = createClient()
-
-  const addOptimisticBookmark = (newBookmark: Omit<Bookmark, 'id' | 'created_at'>) => {
-    const optimisticBookmark: Bookmark = {
-      ...newBookmark,
-      id: 'temp-' + Date.now(),
-      created_at: new Date().toISOString()
-    }
-    setBookmarks((current) => [optimisticBookmark, ...current])
-  }
-
-  useEffect(() => {
-    onOptimisticAdd?.(addOptimisticBookmark)
-  }, [])
-
-  const refreshBookmarks = async () => {
-    const { data } = await supabase
-      .from('bookmarks')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (data) setBookmarks(data)
-  }
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('bookmarks-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bookmarks',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setBookmarks((current) => [payload.new as Bookmark, ...current])
-          } else if (payload.eventType === 'DELETE') {
-            setBookmarks((current) => current.filter((b) => b.id !== payload.old.id))
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase, userId])
-
-  const handleDelete = async (id: string) => {
-    await supabase.from('bookmarks').delete().eq('id', id)
-  }
-
   if (bookmarks.length === 0) {
     return (
       <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
@@ -103,7 +45,7 @@ export function BookmarkList({ initialBookmarks, userId, onOptimisticAdd }: {
               </p>
             </div>
             <button
-              onClick={() => handleDelete(bookmark.id)}
+              onClick={() => onDelete(bookmark.id)}
               className="ml-4 px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             >
               Delete

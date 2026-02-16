@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client'
 import { BookmarkList } from '@/components/BookmarkList'
 import { AddBookmarkForm } from '@/components/AddBookmarkForm'
 import { SignOutButton } from '@/components/SignOutButton'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Bookmark = {
@@ -43,15 +43,65 @@ export default function Home() {
     checkUser()
   }, [])
 
-  const handleBookmarkAdded = (newBookmark: { url: string; title: string; user_id: string }) => {
-    // Add optimistically with temporary ID
+  useEffect(() => {
+    if (!user) return
+
+    const channel = supabase
+      .channel('bookmarks-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookmarks',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newBookmark = payload.new as Bookmark
+            setBookmarks((current) => {
+              const alreadyExists = current.some((b) => b.id === newBookmark.id)
+              if (alreadyExists) return current
+              const tempIndex = current.findIndex(
+                (b) => b.id.startsWith('temp-') && b.title === newBookmark.title && b.url === newBookmark.url
+              )
+              if (tempIndex !== -1) {
+                const updated = [...current]
+                updated[tempIndex] = newBookmark
+                return updated
+              }
+              return [newBookmark, ...current]
+            })
+          } else if (payload.eventType === 'DELETE') {
+            setBookmarks((current) => current.filter((b) => b.id !== payload.old.id))
+          } else if (payload.eventType === 'UPDATE') {
+            const updated = payload.new as Bookmark
+            setBookmarks((current) =>
+              current.map((b) => (b.id === updated.id ? updated : b))
+            )
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user])
+
+  const handleBookmarkAdded = useCallback((newBookmark: { url: string; title: string; user_id: string }) => {
     const optimisticBookmark: Bookmark = {
       ...newBookmark,
       id: 'temp-' + Date.now(),
       created_at: new Date().toISOString()
     }
     setBookmarks((current) => [optimisticBookmark, ...current])
-  }
+  }, [])
+
+  const handleDelete = useCallback(async (id: string) => {
+    setBookmarks((current) => current.filter((b) => b.id !== id))
+    await supabase.from('bookmarks').delete().eq('id', id)
+  }, [supabase])
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
@@ -74,7 +124,7 @@ export default function Home() {
           </div>
           <AddBookmarkForm onBookmarkAdded={handleBookmarkAdded} />
         </div>
-        <BookmarkList initialBookmarks={bookmarks} userId={user.id} />
+        <BookmarkList bookmarks={bookmarks} onDelete={handleDelete} />
       </div>
     </div>
   )

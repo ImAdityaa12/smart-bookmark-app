@@ -3,7 +3,9 @@
 import { createClient } from '@/utils/supabase/client'
 import { useState } from 'react'
 
-export function AddBookmarkForm() {
+export function AddBookmarkForm({ onBookmarkAdded }: {
+  onBookmarkAdded: (bookmark: { url: string; title: string; user_id: string }) => void
+}) {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
@@ -15,7 +17,6 @@ export function AddBookmarkForm() {
     setLoading(true)
     const supabase = createClient()
     
-    // Get the current user
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {
@@ -23,6 +24,10 @@ export function AddBookmarkForm() {
       setLoading(false)
       return
     }
+
+    onBookmarkAdded({ url, title, user_id: user.id })
+    setUrl('')
+    setTitle('')
     
     const { error } = await supabase.from('bookmarks').insert([
       { url, title, user_id: user.id }
@@ -33,8 +38,6 @@ export function AddBookmarkForm() {
       alert('Failed to add bookmark: ' + error.message)
     }
 
-    setUrl('')
-    setTitle('')
     setLoading(false)
   }
 
