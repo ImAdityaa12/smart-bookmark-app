@@ -33,6 +33,7 @@ export default function Home() {
 
   const {
     bookmarks,
+    quickAccessBookmarks,
     loading,
     searchQuery,
     setSearchQuery,
@@ -93,7 +94,7 @@ export default function Home() {
 
         {!searchQuery && !searching && !isSwitchingPage && (
           <RecentBookmarksGrid 
-            bookmarks={bookmarks} 
+            bookmarks={quickAccessBookmarks} 
             onRemove={toggleQuickAccess} 
           />
         )}
