@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client'
 import { BookmarkList } from '@/components/bookmark-list'
 import { AddBookmarkForm } from '@/components/add-bookmark-form'
 import { SignOutButton } from '@/components/sign-out-button'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Bookmark } from '@/types/database.types'
 
@@ -96,6 +96,9 @@ export default function Home() {
     setBookmarks((current) =>
       current.map((b) => (b.id === id ? { ...b, ...updates } : b))
     )
+    setSearchResults((current) =>
+      current?.map((b) => (b.id === id ? { ...b, ...updates } : b)) ?? null
+    )
     await fetch(`/api/bookmarks/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -105,14 +108,52 @@ export default function Home() {
 
   const handleDelete = useCallback(async (id: string) => {
     setBookmarks((current) => current.filter((b) => b.id !== id))
+    setSearchResults((current) => current?.filter((b) => b.id !== id) ?? null)
     await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' })
   }, [])
 
-  const filteredBookmarks = bookmarks.filter((b) => {
-    if (!searchQuery.trim()) return true
-    const q = searchQuery.toLowerCase()
-    return b.title.toLowerCase().includes(q) || b.url.toLowerCase().includes(q)
-  })
+  const [searchResults, setSearchResults] = useState<Bookmark[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    const q = searchQuery.trim()
+    if (!q) {
+      abortRef.current?.abort()
+      setSearchResults(null)
+      setSearching(false)
+      return
+    }
+
+    setSearching(true)
+    debounceRef.current = setTimeout(async () => {
+      abortRef.current?.abort()
+      abortRef.current = new AbortController()
+      try {
+        const res = await fetch(`/api/bookmarks?q=${encodeURIComponent(q)}`, {
+          signal: abortRef.current.signal,
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setSearchResults(data)
+        }
+        setSearching(false)
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          setSearching(false)
+        }
+      }
+    }, 300)
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [searchQuery])
+
+  const displayedBookmarks = searchResults !== null ? searchResults : bookmarks
 
   if (loading) {
     return (
@@ -199,15 +240,24 @@ export default function Home() {
                 </button>
               )}
             </div>
-            {searchQuery && (
+            {searchQuery && !searching && searchResults !== null && (
               <p className="text-sm text-gray-400 mt-2 ml-1">
-                {filteredBookmarks.length} result{filteredBookmarks.length !== 1 ? 's' : ''} for &ldquo;{searchQuery}&rdquo;
+                {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for &ldquo;{searchQuery}&rdquo;
+              </p>
+            )}
+            {searching && (
+              <p className="text-sm text-gray-400 mt-2 ml-1 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 animate-spin-slow" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Searching...
               </p>
             )}
           </div>
         )}
 
-        <BookmarkList bookmarks={filteredBookmarks} onDelete={handleDelete} onEdit={handleEdit} isSearching={!!searchQuery.trim()} />
+        <BookmarkList bookmarks={displayedBookmarks} onDelete={handleDelete} onEdit={handleEdit} isSearching={!!searchQuery.trim()} />
       </div>
     </div>
   )

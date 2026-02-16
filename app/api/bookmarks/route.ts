@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -9,10 +9,22 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data, error } = await supabase
+  const { searchParams } = new URL(request.url)
+  const q = searchParams.get('q')?.trim()
+
+  let query = supabase
     .from('bookmarks')
     .select('*')
     .order('created_at', { ascending: false })
+
+  if (q) {
+    const sanitized = q.replace(/[%_,()]/g, '')
+    if (sanitized) {
+      query = query.or(`title.ilike.%${sanitized}%,url.ilike.%${sanitized}%`)
+    }
+  }
+
+  const { data, error } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
