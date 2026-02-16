@@ -75,18 +75,22 @@ export function RecentBookmarksGrid({ bookmarks, onRemove }: RecentBookmarksGrid
       </div>
 
       <div className="grid grid-cols-4 gap-4 px-1">
-        <AnimatePresence mode="wait">
+        <AnimatePresence initial={false}>
           {displayedItems.map((bookmark) => {
             const faviconUrl = getFaviconUrl(bookmark.url)
             return (
-              <div key={(bookmark as any).clientId || bookmark.id} className="relative group">
+              <motion.div 
+                key={(bookmark as any).clientId || bookmark.id} 
+                layout
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+                className="relative group"
+              >
                 <motion.a
                   href={bookmark.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
                   whileHover={{ y: -4 }}
                   whileTap={{ scale: 0.95 }}
                   className="flex flex-col items-center gap-2.5"
@@ -129,7 +133,7 @@ export function RecentBookmarksGrid({ bookmarks, onRemove }: RecentBookmarksGrid
                     {bookmark.title}
                   </span>
                 </motion.a>
-              </div>
+              </motion.div>
             )
           })}
         </AnimatePresence>
