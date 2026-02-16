@@ -94,9 +94,13 @@ export function BookmarkList({ bookmarks, onDelete, onEdit, isSearching }: {
               </svg>
             </div>
             <h3 className="text-[17px] font-semibold text-[#111827] mb-1">No bookmarks yet</h3>
-            <p className="text-[14px] text-[#6B7280] max-w-xs mx-auto">
-              Start saving your favorite links by adding your first bookmark above.
+            <p className="text-[14px] text-[#6B7280] max-w-xs mx-auto mb-4">
+              Start saving your favorite links by adding your first bookmark.
             </p>
+            <div className="flex items-center justify-center gap-2">
+              <span className="px-2 py-1 bg-[#F3F4F6] border border-[#E5E7EB] rounded text-[12px] font-mono text-[#6B7280]">N</span>
+              <span className="text-[13px] text-[#6B7280]">to add new</span>
+            </div>
           </>
         )}
       </div>

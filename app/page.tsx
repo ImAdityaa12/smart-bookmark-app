@@ -13,8 +13,25 @@ export default function Home() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const router = useRouter()
   const supabase = createClient()
+
+  const fetchBookmarks = useCallback(async (page: number, query?: string) => {
+    const url = query 
+      ? `/api/bookmarks?q=${encodeURIComponent(query)}&page=${page}`
+      : `/api/bookmarks?page=${page}`
+    
+    const res = await fetch(url)
+    if (res.ok) {
+      const data = await res.json()
+      setBookmarks(data.bookmarks)
+      setTotalPages(data.totalPages)
+      setTotalCount(data.total)
+    }
+  }, [])
 
   useEffect(() => {
     const init = async () => {
@@ -24,12 +41,7 @@ export default function Home() {
         return
       }
       setUser(user)
-
-      const res = await fetch('/api/bookmarks')
-      if (res.ok) {
-        const data = await res.json()
-        setBookmarks(data)
-      }
+      await fetchBookmarks(1)
       setLoading(false)
     }
 
@@ -49,30 +61,8 @@ export default function Home() {
           table: 'bookmarks',
           filter: `user_id=eq.${user.id}`
         },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newBookmark = payload.new as Bookmark
-            setBookmarks((current) => {
-              const alreadyExists = current.some((b) => b.id === newBookmark.id)
-              if (alreadyExists) return current
-              const tempIndex = current.findIndex(
-                (b) => b.id.startsWith('temp-') && b.title === newBookmark.title && b.url === newBookmark.url
-              )
-              if (tempIndex !== -1) {
-                const updated = [...current]
-                updated[tempIndex] = newBookmark
-                return updated
-              }
-              return [newBookmark, ...current]
-            })
-          } else if (payload.eventType === 'DELETE') {
-            setBookmarks((current) => current.filter((b) => b.id !== payload.old.id))
-          } else if (payload.eventType === 'UPDATE') {
-            const updated = payload.new as Bookmark
-            setBookmarks((current) =>
-              current.map((b) => (b.id === updated.id ? updated : b))
-            )
-          }
+        () => {
+          fetchBookmarks(currentPage, searchQuery)
         }
       )
       .subscribe()
@@ -80,7 +70,7 @@ export default function Home() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user])
+  }, [user, currentPage, searchQuery, fetchBookmarks])
 
   const handleBookmarkAdded = useCallback((newBookmark: { url: string; title: string }) => {
     const optimisticBookmark: Bookmark = {
@@ -89,15 +79,13 @@ export default function Home() {
       user_id: user?.id ?? '',
       created_at: new Date().toISOString()
     }
-    setBookmarks((current) => [optimisticBookmark, ...current])
+    setBookmarks((current) => [optimisticBookmark, ...current].slice(0, 10))
+    setShowAddModal(false)
   }, [user])
 
   const handleEdit = useCallback(async (id: string, updates: { title: string; url: string }) => {
     setBookmarks((current) =>
       current.map((b) => (b.id === id ? { ...b, ...updates } : b))
-    )
-    setSearchResults((current) =>
-      current?.map((b) => (b.id === id ? { ...b, ...updates } : b)) ?? null
     )
     await fetch(`/api/bookmarks/${id}`, {
       method: 'PATCH',
@@ -108,52 +96,52 @@ export default function Home() {
 
   const handleDelete = useCallback(async (id: string) => {
     setBookmarks((current) => current.filter((b) => b.id !== id))
-    setSearchResults((current) => current?.filter((b) => b.id !== id) ?? null)
     await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' })
-  }, [])
+    fetchBookmarks(currentPage, searchQuery)
+  }, [currentPage, searchQuery, fetchBookmarks])
 
-  const [searchResults, setSearchResults] = useState<Bookmark[] | null>(null)
   const [searching, setSearching] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'n' && !showAddModal && document.activeElement?.tagName !== 'INPUT') {
+        e.preventDefault()
+        setShowAddModal(true)
+      }
+      if (e.key === 'Escape' && showAddModal) {
+        setShowAddModal(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showAddModal])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
     const q = searchQuery.trim()
-    if (!q) {
-      abortRef.current?.abort()
-      setSearchResults(null)
-      setSearching(false)
-      return
-    }
-
     setSearching(true)
     debounceRef.current = setTimeout(async () => {
-      abortRef.current?.abort()
-      abortRef.current = new AbortController()
-      try {
-        const res = await fetch(`/api/bookmarks?q=${encodeURIComponent(q)}`, {
-          signal: abortRef.current.signal,
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setSearchResults(data)
-        }
-        setSearching(false)
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          setSearching(false)
-        }
-      }
+      setCurrentPage(1)
+      await fetchBookmarks(1, q)
+      setSearching(false)
     }, 300)
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [searchQuery])
+  }, [searchQuery, fetchBookmarks])
 
-  const displayedBookmarks = searchResults !== null ? searchResults : bookmarks
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage)
+    fetchBookmarks(newPage, searchQuery)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const displayedBookmarks = bookmarks
 
   if (loading) {
     return (
@@ -227,9 +215,9 @@ export default function Home() {
                 </button>
               )}
             </div>
-            {searchQuery && !searching && searchResults !== null && (
+            {searchQuery && !searching && (
               <p className="text-[13px] text-[#6B7280] mt-2 ml-1">
-                {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for &ldquo;{searchQuery}&rdquo;
+                {totalCount} result{totalCount !== 1 ? 's' : ''} for &ldquo;{searchQuery}&rdquo;
               </p>
             )}
             {searching && (
@@ -244,29 +232,122 @@ export default function Home() {
           </div>
         )}
 
-        {/* Add Bookmark Section */}
-        <div className="bg-white border border-[#E5E7EB] rounded-[16px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-4 mb-6 animate-slide-up">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-[13px] font-medium text-[#6B7280] uppercase tracking-wide">Add Bookmark</h2>
-            {bookmarks.length > 0 && (
-              <span className="px-2 py-0.5 text-[11px] font-semibold bg-[#2563EB]/10 text-[#2563EB] rounded-full">
-                {bookmarks.length}
-              </span>
-            )}
-          </div>
-          <AddBookmarkForm onBookmarkAdded={handleBookmarkAdded} />
-        </div>
-
         {/* Section Title */}
-        {displayedBookmarks.length > 0 && (
-          <h3 className="text-[13px] font-medium text-[#6B7280] uppercase tracking-wide mb-3 mt-6">
-            {searchQuery ? 'Search Results' : 'Recently Added'}
-          </h3>
+        {(displayedBookmarks.length > 0 || searchQuery) && (
+          <div className="flex items-center justify-between mb-3 mt-6">
+            <h3 className="text-[13px] font-medium text-[#6B7280] uppercase tracking-wide">
+              {searchQuery ? 'Search Results' : 'Recently Added'}
+            </h3>
+            <span className="text-[12px] text-[#6B7280] font-medium">
+              {totalCount} total
+            </span>
+          </div>
         )}
 
         {/* Bookmark List */}
         <BookmarkList bookmarks={displayedBookmarks} onDelete={handleDelete} onEdit={handleEdit} isSearching={!!searchQuery.trim()} />
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-2 animate-fade-in">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 text-[#6B7280] hover:text-[#2563EB] hover:bg-white border border-transparent hover:border-[#E5E7EB] rounded-xl disabled:opacity-30 disabled:hover:text-[#6B7280] disabled:hover:bg-transparent disabled:hover:border-transparent transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
+              title="Previous page"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                // Show only current, first, last, and neighbors
+                if (
+                  p === 1 || 
+                  p === totalPages || 
+                  (p >= currentPage - 1 && p <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => handlePageChange(p)}
+                      className={`min-w-[40px] h-10 flex items-center justify-center rounded-xl text-[14px] font-semibold transition-all duration-200 cursor-pointer ${
+                        currentPage === p
+                          ? 'bg-[#2563EB] text-white shadow-md'
+                          : 'text-[#6B7280] hover:bg-white border border-transparent hover:border-[#E5E7EB] hover:text-[#2563EB]'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                }
+                if (p === currentPage - 2 || p === currentPage + 2) {
+                  return <span key={p} className="text-[#6B7280] px-1">…</span>
+                }
+                return null
+              })}
+            </div>
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-2 text-[#6B7280] hover:text-[#2563EB] hover:bg-white border border-transparent hover:border-[#E5E7EB] rounded-xl disabled:opacity-30 disabled:hover:text-[#6B7280] disabled:hover:bg-transparent disabled:hover:border-transparent transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
+              title="Next page"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Floating Action Button */}
+      <button
+        onClick={() => setShowAddModal(true)}
+        className="fixed bottom-8 right-8 w-14 h-14 bg-[#2563EB] text-white rounded-full shadow-[0_8px_30px_rgb(37,99,235,0.4)] hover:bg-[#1D4ED8] hover:shadow-[0_8px_30px_rgb(37,99,235,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-200 flex items-center justify-center cursor-pointer z-40 group"
+        title="Add new bookmark"
+      >
+        <svg className="w-7 h-7 transition-transform duration-200 group-hover:rotate-90" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      </button>
+
+      {/* Add Bookmark Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-[#111827]/40 backdrop-blur-sm animate-fade-in"
+            onClick={() => setShowAddModal(false)}
+          />
+          <div className="relative w-full max-w-[480px] bg-white rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.2)] p-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#2563EB]/10 flex items-center justify-center text-[#2563EB]">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-[#111827]">Add Bookmark</h2>
+                  <p className="text-[13px] text-[#6B7280]">Save a new link to your collection</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-2 text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] rounded-xl transition-colors cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <AddBookmarkForm onBookmarkAdded={handleBookmarkAdded} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

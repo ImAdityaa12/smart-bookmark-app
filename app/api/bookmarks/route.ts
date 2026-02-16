@@ -11,11 +11,16 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q')?.trim()
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '10')
+  const from = (page - 1) * limit
+  const to = from + limit - 1
 
   let query = supabase
     .from('bookmarks')
-    .select('*')
+    .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
+    .range(from, to)
 
   if (q) {
     const sanitized = q.replace(/[%_,()]/g, '')
@@ -24,13 +29,19 @@ export async function GET(request: Request) {
     }
   }
 
-  const { data, error } = await query
+  const { data, error, count } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json(data)
+  return NextResponse.json({
+    bookmarks: data,
+    total: count || 0,
+    page,
+    limit,
+    totalPages: Math.ceil((count || 0) / limit)
+  })
 }
 
 export async function POST(request: Request) {
