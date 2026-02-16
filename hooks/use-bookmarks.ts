@@ -1,6 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { createClient } from '@/utils/supabase/client'
 import { Bookmark } from '@/types/database.types'
+import { 
+  getBookmarks, 
+  getQuickAccessBookmarks, 
+  createBookmarkAction, 
+  updateBookmarkAction, 
+  deleteBookmarkAction 
+} from '@/app/actions'
 
 // Local extension of Bookmark type to include clientId
 export type BookmarkWithClient = Bookmark & { clientId: string }
@@ -16,43 +22,28 @@ export function useBookmarks(user: any) {
   const [totalCount, setTotalCount] = useState(0)
   const [isSwitchingPage, setIsSwitchingPage] = useState(false)
   
-  const supabase = createClient()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initialMount = useRef(true)
-  const pendingInserts = useRef<Set<string>>(new Set())
-  const pendingDeletes = useRef<Set<string>>(new Set())
-  const processedIds = useRef<Set<string>>(new Set())
 
   const fetchQuickAccess = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('bookmarks')
-      .select('*')
-      .eq('is_quick_access', true)
-      .order('created_at', { ascending: false })
-    
-    if (!error && data) {
+    try {
+      const data = await getQuickAccessBookmarks()
       setQuickAccessBookmarks(data.map(b => ({ ...b, clientId: b.id })))
+    } catch (error) {
+      console.error('Error fetching quick access bookmarks:', error)
     }
-  }, [supabase])
+  }, [])
 
   const fetchBookmarks = useCallback(async (page: number, query?: string) => {
-    const url = query 
-      ? `/api/bookmarks?q=${encodeURIComponent(query)}&page=${page}`
-      : `/api/bookmarks?page=${page}`
-    
     try {
-      const res = await fetch(url)
-      if (res.ok) {
-        const data = await res.json()
-        // Map bookmarks to have a stable clientId for React keys
-        const bookmarksWithIds = (data.bookmarks || []).map((b: Bookmark) => ({
-          ...b,
-          clientId: b.id
-        }))
-        setBookmarks(bookmarksWithIds)
-        setTotalPages(data.totalPages || 1)
-        setTotalCount(data.total || 0)
-      }
+      const data = await getBookmarks(page, 10, query)
+      const bookmarksWithIds = (data.bookmarks || []).map((b: Bookmark) => ({
+        ...b,
+        clientId: b.id
+      }))
+      setBookmarks(bookmarksWithIds)
+      setTotalPages(data.totalPages || 1)
+      setTotalCount(data.total || 0)
     } catch (error) {
       console.error('Error fetching bookmarks:', error)
     } finally {
@@ -68,104 +59,6 @@ export function useBookmarks(user: any) {
       fetchQuickAccess()
     }
   }, [user, fetchBookmarks, fetchQuickAccess])
-
-  // Realtime subscription
-  useEffect(() => {
-    if (!user) return
-
-    const channel = supabase
-      .channel('bookmarks-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bookmarks',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newBookmark = payload.new as Bookmark
-            
-            // Handle Quick Access independently
-            if (newBookmark.is_quick_access) {
-              setQuickAccessBookmarks(current => {
-                if (current.some(b => b.id === newBookmark.id)) return current
-                return [{ ...newBookmark, clientId: newBookmark.id }, ...current]
-              })
-            }
-
-            // If we already handled this ID (via API response), ignore realtime
-            if (processedIds.current.has(newBookmark.id)) {
-              return
-            }
-            
-            setBookmarks((current) => {
-              if (current.some(b => b.id === newBookmark.id)) return current
-
-              // Check if it's our own insert (pending by URL/Title)
-              const pendingKey = `${newBookmark.title}|${newBookmark.url}`
-              
-              if (pendingInserts.current.has(pendingKey)) {
-                // Let API response handle it to avoid flickering
-                return current
-              }
-
-              // Truly external insert (from another tab/device)
-              if (currentPage === 1 && !searchQuery) {
-                setTotalCount(prev => prev + 1)
-                return [{ ...newBookmark, clientId: newBookmark.id }, ...current]
-              }
-              return current
-            })
-          } else if (payload.eventType === 'DELETE') {
-            const deletedId = payload.old.id
-            
-            // Update both lists
-            setQuickAccessBookmarks(current => current.filter(b => b.id !== deletedId))
-            
-            if (pendingDeletes.current.has(deletedId)) {
-              pendingDeletes.current.delete(deletedId)
-              return
-            }
-            setBookmarks((current) => current.filter(b => b.id !== deletedId))
-            setTotalCount(prev => Math.max(0, prev - 1))
-          } else if (payload.eventType === 'UPDATE') {
-            const updated = payload.new as Bookmark
-            
-            // Sync Quick Access list
-            setQuickAccessBookmarks(current => {
-              const isPinned = updated.is_quick_access
-              const exists = current.some(b => b.id === updated.id)
-              
-              if (isPinned && !exists) {
-                return [{ ...updated, clientId: updated.id }, ...current]
-              } else if (!isPinned && exists) {
-                return current.filter(b => b.id !== updated.id)
-              } else if (isPinned && exists) {
-                return current.map(b => b.id === updated.id ? { ...updated, clientId: b.clientId } : b)
-              }
-              return current
-            })
-
-            // If we already handled this update (via API response), ignore realtime
-            if (processedIds.current.has(`${updated.id}-update`)) {
-              processedIds.current.delete(`${updated.id}-update`)
-              return
-            }
-
-            setBookmarks((current) =>
-              current.map(b => (b.id === updated.id ? { ...updated, clientId: b.clientId } : b))
-            )
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [user, currentPage, searchQuery, fetchBookmarks])
 
   // Search logic
   useEffect(() => {
@@ -215,40 +108,21 @@ export function useBookmarks(user: any) {
     }
     
     setTotalCount((prev) => prev + 1)
-    pendingInserts.current.add(`${newBookmark.title}|${newBookmark.url}`)
 
     try {
-      // 2. Call API
-      const res = await fetch('/api/bookmarks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newBookmark),
-      })
-
-      if (res.ok) {
-        const realBookmark = await res.json()
-        
-        // 3. Mark as processed to ignore subsequent realtime signals for this ID
-        processedIds.current.add(realBookmark.id)
-        
-        // 4. Clean up pending inserts
-        pendingInserts.current.delete(`${newBookmark.title}|${newBookmark.url}`)
-
-        // 5. IMMEDIATELY swap temp data for real data in state but KEEP clientId stable
-        const finalized = { ...realBookmark, clientId: tempId }
-        setBookmarks((current) => 
-          current.map(b => b.clientId === tempId ? finalized : b)
-        )
-        setQuickAccessBookmarks(current => 
-          current.map(b => b.clientId === tempId ? finalized : b)
-        )
-      } else {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to save')
-      }
+      // 2. Call Server Action
+      const realBookmark = await createBookmarkAction(newBookmark)
+      
+      // 3. IMMEDIATELY swap temp data for real data in state but KEEP clientId stable
+      const finalized = { ...realBookmark, clientId: tempId }
+      setBookmarks((current) => 
+        current.map(b => b.clientId === tempId ? finalized : b)
+      )
+      setQuickAccessBookmarks(current => 
+        current.map(b => b.clientId === tempId ? finalized : b)
+      )
     } catch (error) {
       console.error('[useBookmarks] Create failed:', error)
-      pendingInserts.current.delete(`${newBookmark.title}|${newBookmark.url}`)
       setBookmarks((current) => current.filter(b => b.clientId !== tempId))
       setQuickAccessBookmarks(current => current.filter(b => b.clientId !== tempId))
       setTotalCount((prev) => Math.max(0, prev - 1))
@@ -263,36 +137,40 @@ export function useBookmarks(user: any) {
     setBookmarks(updateFn)
     setQuickAccessBookmarks(updateFn)
 
-    await fetch(`/api/bookmarks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    })
-  }, [])
+    try {
+      await updateBookmarkAction(id, updates)
+    } catch (error) {
+      console.error('Error editing bookmark:', error)
+      fetchBookmarks(currentPage, searchQuery)
+      fetchQuickAccess()
+    }
+  }, [currentPage, searchQuery, fetchBookmarks, fetchQuickAccess])
 
   const deleteBookmark = useCallback(async (id: string) => {
     if (id.startsWith('temp-')) return
     
-    pendingDeletes.current.add(id)
     setBookmarks((current) => current.filter((b) => b.id !== id))
     setQuickAccessBookmarks((current) => current.filter((b) => b.id !== id))
     setTotalCount((prev) => Math.max(0, prev - 1))
-    await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' })
-  }, [])
+    
+    try {
+      await deleteBookmarkAction(id)
+    } catch (error) {
+      console.error('Error deleting bookmark:', error)
+      fetchBookmarks(currentPage, searchQuery)
+      fetchQuickAccess()
+    }
+  }, [currentPage, searchQuery, fetchBookmarks, fetchQuickAccess])
 
   const toggleQuickAccess = useCallback(async (id: string, currentState: boolean) => {
     if (id.startsWith('temp-')) return
     
     const newState = !currentState
-    // Mark this update as processed locally
-    processedIds.current.add(`${id}-update`)
 
     const updateFn = (current: BookmarkWithClient[]) => {
       const exists = current.some(b => b.id === id)
       if (newState) {
         if (exists) return current.map(b => b.id === id ? { ...b, is_quick_access: true } : b)
-        // If it's not in the main list, it must be in the quick access list already, 
-        // but this logic is mainly for adding TO quick access.
         return current
       } else {
         return current.map(b => b.id === id ? { ...b, is_quick_access: false } : b)
@@ -313,19 +191,13 @@ export function useBookmarks(user: any) {
       }
     })
 
-    const res = await fetch(`/api/bookmarks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_quick_access: newState }),
-    })
-
-    if (!res.ok) {
-      const err = await res.json()
-      console.error('[useBookmarks] Failed to toggle quick access:', err)
-      // Revert would be complex, simplified for now
+    try {
+      await updateBookmarkAction(id, { is_quick_access: newState })
+    } catch (error) {
+      console.error('[useBookmarks] Failed to toggle quick access:', error)
       fetchQuickAccess()
       fetchBookmarks(currentPage, searchQuery)
-      alert('Failed to save Quick Access state: ' + (err.error || 'Unknown error'))
+      alert('Failed to save Quick Access state: ' + (error as Error).message)
     }
   }, [bookmarks, currentPage, searchQuery, fetchQuickAccess, fetchBookmarks])
 
