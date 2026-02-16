@@ -1,12 +1,6 @@
 'use client'
 
-type Bookmark = {
-  id: string
-  title: string
-  url: string
-  created_at: string
-  user_id: string
-}
+import { Bookmark } from '@/types/database.types'
 
 export function BookmarkList({ bookmarks, onDelete }: {
   bookmarks: Bookmark[]

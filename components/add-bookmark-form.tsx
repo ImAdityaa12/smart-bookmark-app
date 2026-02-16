@@ -1,10 +1,9 @@
 'use client'
 
-import { createClient } from '@/utils/supabase/client'
 import { useState } from 'react'
 
 export function AddBookmarkForm({ onBookmarkAdded }: {
-  onBookmarkAdded: (bookmark: { url: string; title: string; user_id: string }) => void
+  onBookmarkAdded: (bookmark: { url: string; title: string }) => void
 }) {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
@@ -15,27 +14,21 @@ export function AddBookmarkForm({ onBookmarkAdded }: {
     if (!url || !title) return
 
     setLoading(true)
-    const supabase = createClient()
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      alert('You must be logged in to add bookmarks')
-      setLoading(false)
-      return
-    }
 
-    onBookmarkAdded({ url, title, user_id: user.id })
+    onBookmarkAdded({ url, title })
     setUrl('')
     setTitle('')
-    
-    const { error } = await supabase.from('bookmarks').insert([
-      { url, title, user_id: user.id }
-    ])
 
-    if (error) {
+    const res = await fetch('/api/bookmarks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, title }),
+    })
+
+    if (!res.ok) {
+      const { error } = await res.json()
       console.error('Error adding bookmark:', error)
-      alert('Failed to add bookmark: ' + error.message)
+      alert('Failed to add bookmark: ' + error)
     }
 
     setLoading(false)

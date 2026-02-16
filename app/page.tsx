@@ -1,19 +1,12 @@
 'use client'
 
 import { createClient } from '@/utils/supabase/client'
-import { BookmarkList } from '@/components/BookmarkList'
-import { AddBookmarkForm } from '@/components/AddBookmarkForm'
-import { SignOutButton } from '@/components/SignOutButton'
+import { BookmarkList } from '@/components/bookmark-list'
+import { AddBookmarkForm } from '@/components/add-bookmark-form'
+import { SignOutButton } from '@/components/sign-out-button'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-
-type Bookmark = {
-  id: string
-  title: string
-  url: string
-  created_at: string
-  user_id: string
-}
+import { Bookmark } from '@/types/database.types'
 
 export default function Home() {
   const [user, setUser] = useState<any>(null)
@@ -23,24 +16,23 @@ export default function Home() {
   const supabase = createClient()
 
   useEffect(() => {
-    const checkUser = async () => {
+    const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/login')
         return
       }
       setUser(user)
-      
-      const { data } = await supabase
-        .from('bookmarks')
-        .select('*')
-        .order('created_at', { ascending: false })
-      
-      setBookmarks(data || [])
+
+      const res = await fetch('/api/bookmarks')
+      if (res.ok) {
+        const data = await res.json()
+        setBookmarks(data)
+      }
       setLoading(false)
     }
-    
-    checkUser()
+
+    init()
   }, [])
 
   useEffect(() => {
@@ -89,19 +81,20 @@ export default function Home() {
     }
   }, [user])
 
-  const handleBookmarkAdded = useCallback((newBookmark: { url: string; title: string; user_id: string }) => {
+  const handleBookmarkAdded = useCallback((newBookmark: { url: string; title: string }) => {
     const optimisticBookmark: Bookmark = {
       ...newBookmark,
       id: 'temp-' + Date.now(),
+      user_id: user?.id ?? '',
       created_at: new Date().toISOString()
     }
     setBookmarks((current) => [optimisticBookmark, ...current])
-  }, [])
+  }, [user])
 
   const handleDelete = useCallback(async (id: string) => {
     setBookmarks((current) => current.filter((b) => b.id !== id))
-    await supabase.from('bookmarks').delete().eq('id', id)
-  }, [supabase])
+    await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' })
+  }, [])
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
