@@ -12,6 +12,7 @@ export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
@@ -91,10 +92,27 @@ export default function Home() {
     setBookmarks((current) => [optimisticBookmark, ...current])
   }, [user])
 
+  const handleEdit = useCallback(async (id: string, updates: { title: string; url: string }) => {
+    setBookmarks((current) =>
+      current.map((b) => (b.id === id ? { ...b, ...updates } : b))
+    )
+    await fetch(`/api/bookmarks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    })
+  }, [])
+
   const handleDelete = useCallback(async (id: string) => {
     setBookmarks((current) => current.filter((b) => b.id !== id))
     await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' })
   }, [])
+
+  const filteredBookmarks = bookmarks.filter((b) => {
+    if (!searchQuery.trim()) return true
+    const q = searchQuery.toLowerCase()
+    return b.title.toLowerCase().includes(q) || b.url.toLowerCase().includes(q)
+  })
 
   if (loading) {
     return (
@@ -155,7 +173,41 @@ export default function Home() {
           <AddBookmarkForm onBookmarkAdded={handleBookmarkAdded} />
         </div>
 
-        <BookmarkList bookmarks={bookmarks} onDelete={handleDelete} />
+        {bookmarks.length > 0 && (
+          <div className="mb-4 animate-fade-in">
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search bookmarks by title or URL..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-10 py-3.5 glass-strong border border-white/40 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 outline-none transition-all duration-200 text-gray-800 placeholder:text-gray-400 shadow-md"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {searchQuery && (
+              <p className="text-sm text-gray-400 mt-2 ml-1">
+                {filteredBookmarks.length} result{filteredBookmarks.length !== 1 ? 's' : ''} for &ldquo;{searchQuery}&rdquo;
+              </p>
+            )}
+          </div>
+        )}
+
+        <BookmarkList bookmarks={filteredBookmarks} onDelete={handleDelete} onEdit={handleEdit} isSearching={!!searchQuery.trim()} />
       </div>
     </div>
   )
