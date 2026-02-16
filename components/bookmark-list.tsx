@@ -73,7 +73,7 @@ export function BookmarkList({ bookmarks, onDelete, onEdit, isSearching }: {
 
   if (bookmarks.length === 0) {
     return (
-      <div className="bg-white border border-[#E5E7EB] rounded-[16px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-16 text-center animate-fade-in">
+      <div className="bg-white border border-[#E5E7EB] rounded-[16px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-16 text-center">
         {isSearching ? (
           <>
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#F3F4F6] mb-4">
@@ -118,7 +118,7 @@ export function BookmarkList({ bookmarks, onDelete, onEdit, isSearching }: {
         return (
           <div
             key={bookmark.id}
-            className={`group bg-white border rounded-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-4 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-px transition-all duration-200 animate-fade-in opacity-0 ${staggerClass} ${
+            className={`group bg-white border rounded-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-4 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-px transition-all duration-200 ${
               isOptimistic ? 'bookmark-optimistic border-[#E5E7EB]' : ''
             } ${isEditing ? 'border-[#2563EB] ring-2 ring-[#2563EB]/10' : 'border-[#E5E7EB]'}`}
           >

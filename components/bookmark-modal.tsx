@@ -9,10 +9,10 @@ export function BookmarkModal({ onClose, onBookmarkAdded }: BookmarkModalProps) 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-[#111827]/40 backdrop-blur-sm animate-fade-in"
+        className="absolute inset-0 bg-[#111827]/40 backdrop-blur-[2px] animate-dialog-overlay"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-[480px] bg-white rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.2)] p-6 animate-slide-up">
+      <div className="relative w-full max-w-[480px] bg-white rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.2)] p-6 animate-dialog-content">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#2563EB]/10 flex items-center justify-center text-[#2563EB]">

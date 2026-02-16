@@ -25,9 +25,9 @@ export function useBookmarks(user: any) {
       const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
-        setBookmarks(data.bookmarks)
-        setTotalPages(data.totalPages)
-        setTotalCount(data.total)
+        setBookmarks(data.bookmarks || [])
+        setTotalPages(data.totalPages || 1)
+        setTotalCount(data.total || 0)
       }
     } catch (error) {
       console.error('Error fetching bookmarks:', error)

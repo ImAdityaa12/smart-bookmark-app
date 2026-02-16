@@ -108,7 +108,7 @@ export default function Home() {
           </div>
         )}
 
-        <div className="min-h-[400px] transition-all duration-300 ease-in-out">
+        <div>
           {searching || isSwitchingPage ? (
             <BookmarkSkeleton />
           ) : (
