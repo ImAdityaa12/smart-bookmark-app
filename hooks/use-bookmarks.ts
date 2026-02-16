@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Bookmark } from '@/types/database.types'
+import { toast } from 'sonner'
 
 export function useBookmarks(user: any) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
@@ -15,8 +16,10 @@ export function useBookmarks(user: any) {
   const supabase = createClient()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initialMount = useRef(true)
+  const pendingInserts = useRef<Set<string>>(new Set())
 
   const fetchBookmarks = useCallback(async (page: number, query?: string) => {
+    console.log(`[useBookmarks] fetchBookmarks: page=${page}, query=${query}`)
     const url = query 
       ? `/api/bookmarks?q=${encodeURIComponent(query)}&page=${page}`
       : `/api/bookmarks?page=${page}`
@@ -25,12 +28,13 @@ export function useBookmarks(user: any) {
       const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
+        console.log(`[useBookmarks] fetchBookmarks success: ${data.bookmarks?.length} items`)
         setBookmarks(data.bookmarks || [])
         setTotalPages(data.totalPages || 1)
         setTotalCount(data.total || 0)
       }
     } catch (error) {
-      console.error('Error fetching bookmarks:', error)
+      console.error('[useBookmarks] fetchBookmarks error:', error)
     } finally {
       setIsSwitchingPage(false)
       setLoading(false)
@@ -58,8 +62,51 @@ export function useBookmarks(user: any) {
           table: 'bookmarks',
           filter: `user_id=eq.${user.id}`
         },
-        () => {
-          fetchBookmarks(currentPage, searchQuery)
+        (payload) => {
+          console.log('[useBookmarks] Realtime event:', payload.eventType, payload.new)
+          if (payload.eventType === 'INSERT') {
+            const newBookmark = payload.new as Bookmark
+            const pendingKey = `${newBookmark.title}|${newBookmark.url}`
+            
+            if (pendingInserts.current.has(pendingKey)) {
+              console.log('[useBookmarks] Matching pending insert found:', pendingKey)
+              pendingInserts.current.delete(pendingKey)
+              toast.success('Bookmark saved!')
+              setBookmarks((current) => {
+                const tempIndex = current.findIndex(b => b.id.startsWith('temp-') && b.url === newBookmark.url)
+                if (tempIndex !== -1) {
+                  console.log('[useBookmarks] Replacing temp bookmark content at index:', tempIndex)
+                  const updated = [...current]
+                  // Preserve temp ID to prevent React remount flicker
+                  updated[tempIndex] = { ...newBookmark, id: updated[tempIndex].id }
+                  return updated
+                }
+                return current
+              })
+              return
+            }
+
+            setBookmarks((current) => {
+              const alreadyExists = current.some(b => b.id === newBookmark.id)
+              if (alreadyExists) return current
+              if (currentPage === 1 && !searchQuery) {
+                return [newBookmark, ...current].slice(0, 10)
+              }
+              return current
+            })
+            setTotalCount(prev => prev + 1)
+          } else if (payload.eventType === 'DELETE') {
+            console.log('[useBookmarks] Realtime DELETE:', payload.old.id)
+            toast.info('Bookmark removed')
+            setBookmarks((current) => current.filter(b => b.id !== payload.old.id))
+            setTotalCount(prev => Math.max(0, prev - 1))
+          } else if (payload.eventType === 'UPDATE') {
+            console.log('[useBookmarks] Realtime UPDATE:', payload.new.id)
+            const updated = payload.new as Bookmark
+            setBookmarks((current) =>
+              current.map(b => (b.id === updated.id ? updated : b))
+            )
+          }
         }
       )
       .subscribe()
@@ -103,13 +150,15 @@ export function useBookmarks(user: any) {
   }, [searchQuery, fetchBookmarks])
 
   const addOptimisticBookmark = useCallback((newBookmark: { url: string; title: string }) => {
+    console.log('[useBookmarks] addOptimisticBookmark:', newBookmark)
     const optimisticBookmark: Bookmark = {
       ...newBookmark,
       id: 'temp-' + Date.now(),
       user_id: user?.id ?? '',
       created_at: new Date().toISOString()
     }
-    setBookmarks((current) => [optimisticBookmark, ...current].slice(0, 10))
+    pendingInserts.current.add(`${newBookmark.title}|${newBookmark.url}`)
+    setBookmarks((current) => [optimisticBookmark, ...current])
     setTotalCount((prev) => prev + 1)
   }, [user])
 
