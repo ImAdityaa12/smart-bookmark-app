@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client'
 import { BookmarkList } from '@/components/bookmark-list'
+import { BookmarkSkeleton } from '@/components/bookmark-skeleton'
 import { AddBookmarkForm } from '@/components/add-bookmark-form'
 import { SignOutButton } from '@/components/sign-out-button'
 import { useEffect, useState, useCallback, useRef } from 'react'
@@ -16,6 +17,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [isSwitchingPage, setIsSwitchingPage] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -24,12 +26,18 @@ export default function Home() {
       ? `/api/bookmarks?q=${encodeURIComponent(query)}&page=${page}`
       : `/api/bookmarks?page=${page}`
     
-    const res = await fetch(url)
-    if (res.ok) {
-      const data = await res.json()
-      setBookmarks(data.bookmarks)
-      setTotalPages(data.totalPages)
-      setTotalCount(data.total)
+    try {
+      const res = await fetch(url)
+      if (res.ok) {
+        const data = await res.json()
+        setBookmarks(data.bookmarks)
+        setTotalPages(data.totalPages)
+        setTotalCount(data.total)
+      }
+    } catch (error) {
+      console.error('Error fetching bookmarks:', error)
+    } finally {
+      setIsSwitchingPage(false)
     }
   }, [])
 
@@ -80,6 +88,7 @@ export default function Home() {
       created_at: new Date().toISOString()
     }
     setBookmarks((current) => [optimisticBookmark, ...current].slice(0, 10))
+    setTotalCount((prev) => prev + 1)
     setShowAddModal(false)
   }, [user])
 
@@ -96,6 +105,7 @@ export default function Home() {
 
   const handleDelete = useCallback(async (id: string) => {
     setBookmarks((current) => current.filter((b) => b.id !== id))
+    setTotalCount((prev) => Math.max(0, prev - 1))
     await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' })
     fetchBookmarks(currentPage, searchQuery)
   }, [currentPage, searchQuery, fetchBookmarks])
@@ -103,6 +113,7 @@ export default function Home() {
   const [searching, setSearching] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const initialMount = useRef(true)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -120,9 +131,23 @@ export default function Home() {
   }, [showAddModal])
 
   useEffect(() => {
+    if (initialMount.current) {
+      initialMount.current = false
+      return
+    }
+
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
     const q = searchQuery.trim()
+    
+    if (!q) {
+      setSearching(false)
+      setIsSwitchingPage(true)
+      setCurrentPage(1)
+      fetchBookmarks(1)
+      return
+    }
+
     setSearching(true)
     debounceRef.current = setTimeout(async () => {
       setCurrentPage(1)
@@ -136,6 +161,7 @@ export default function Home() {
   }, [searchQuery, fetchBookmarks])
 
   const handlePageChange = (newPage: number) => {
+    setIsSwitchingPage(true)
     setCurrentPage(newPage)
     fetchBookmarks(newPage, searchQuery)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -189,7 +215,7 @@ export default function Home() {
         </header>
 
         {/* Search Bar */}
-        {bookmarks.length > 0 && (
+        {(bookmarks.length > 0 || searchQuery) && (
           <div className="mb-6 animate-fade-in">
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]">
@@ -244,8 +270,14 @@ export default function Home() {
           </div>
         )}
 
-        {/* Bookmark List */}
-        <BookmarkList bookmarks={displayedBookmarks} onDelete={handleDelete} onEdit={handleEdit} isSearching={!!searchQuery.trim()} />
+        {/* Bookmark List Container */}
+        <div className="min-h-[400px] transition-all duration-300 ease-in-out">
+          {searching || isSwitchingPage ? (
+            <BookmarkSkeleton />
+          ) : (
+            <BookmarkList bookmarks={displayedBookmarks} onDelete={handleDelete} onEdit={handleEdit} isSearching={!!searchQuery.trim()} />
+          )}
+        </div>
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
