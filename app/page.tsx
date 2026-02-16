@@ -5,6 +5,7 @@ import { BookmarkList } from '@/components/bookmark-list'
 import { BookmarkSkeleton } from '@/components/bookmark-skeleton'
 import { Header } from '@/components/header'
 import { SearchBar } from '@/components/search-bar'
+import { RecentBookmarksGrid } from '@/components/recent-bookmarks-grid'
 import { PaginationControls } from '@/components/pagination-controls'
 import { FloatingActionButton } from '@/components/floating-action-button'
 import { BookmarkModal } from '@/components/bookmark-modal'
@@ -88,6 +89,10 @@ export default function Home() {
           email={user.email} 
           onAddBookmark={() => setShowAddModal(true)} 
         />
+
+        {!searchQuery && !searching && !isSwitchingPage && (
+          <RecentBookmarksGrid bookmarks={bookmarks} />
+        )}
 
         <SearchBar
           searchQuery={searchQuery}
