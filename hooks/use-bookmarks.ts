@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Bookmark } from '@/types/database.types'
-import { toast } from 'sonner'
 
 export function useBookmarks(user: any) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
@@ -71,7 +70,6 @@ export function useBookmarks(user: any) {
             if (pendingInserts.current.has(pendingKey)) {
               console.log('[useBookmarks] Matching pending insert found:', pendingKey)
               pendingInserts.current.delete(pendingKey)
-              toast.success('Bookmark saved!')
               setBookmarks((current) => {
                 const tempIndex = current.findIndex(b => b.id.startsWith('temp-') && b.url === newBookmark.url)
                 if (tempIndex !== -1) {
@@ -97,7 +95,6 @@ export function useBookmarks(user: any) {
             setTotalCount(prev => prev + 1)
           } else if (payload.eventType === 'DELETE') {
             console.log('[useBookmarks] Realtime DELETE:', payload.old.id)
-            toast.info('Bookmark removed')
             setBookmarks((current) => current.filter(b => b.id !== payload.old.id))
             setTotalCount(prev => Math.max(0, prev - 1))
           } else if (payload.eventType === 'UPDATE') {

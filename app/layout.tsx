@@ -13,8 +13,6 @@ export const metadata: Metadata = {
   description: "Save and organize your favorite links",
 };
 
-import { Toaster } from 'sonner'
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -24,7 +22,6 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
         {children}
-        <Toaster position="bottom-center" richColors />
       </body>
     </html>
   );
