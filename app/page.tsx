@@ -1,6 +1,6 @@
 'use client'
 
-import { createClient } from '@/utils/supabase/client'
+import { getCurrentUser } from '@/app/actions'
 import { BookmarkList } from '@/components/bookmark-list'
 import { BookmarkSkeleton } from '@/components/bookmark-skeleton'
 import { Header } from '@/components/header'
@@ -19,11 +19,10 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await getCurrentUser()
       if (!user) {
         router.push('/login')
         return
@@ -31,7 +30,7 @@ export default function Home() {
       setUser(user)
     }
     init()
-  }, [])
+  }, [router])
 
   const {
     bookmarks,
