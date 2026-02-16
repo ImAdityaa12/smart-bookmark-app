@@ -80,7 +80,7 @@ export function RecentBookmarksGrid({ bookmarks }: RecentBookmarksGridProps) {
             const faviconUrl = getFaviconUrl(bookmark.url)
             return (
               <motion.a
-                key={bookmark.id}
+                key={(bookmark as any).clientId || bookmark.id}
                 href={bookmark.url}
                 target="_blank"
                 rel="noopener noreferrer"

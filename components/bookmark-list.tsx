@@ -119,7 +119,7 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAc
 
           return (
             <motion.div
-              key={bookmark.id}
+              key={(bookmark as any).clientId || bookmark.id}
               layout
               initial={{ opacity: 0, y: -20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -136,7 +136,7 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAc
               }`}
             >
               {/* Quick Access Pin - Top Right */}
-              {!isEditing && !isOptimistic && (
+              {!isEditing && (
                 <button
                   onClick={() => onToggleQuickAccess(bookmark.id, bookmark.is_quick_access)}
                   className={`absolute -top-2 -right-2 z-10 p-1.5 rounded-full shadow-sm border border-[#E5E7EB] transition-all duration-200 cursor-pointer ${
@@ -256,17 +256,17 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAc
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                       </svg>
                     </a>
-                    {!isOptimistic && (
-                      <button
-                        onClick={() => startEditing(bookmark)}
-                        className="p-2 text-[#6B7280] hover:text-[#2563EB] hover:bg-[#2563EB]/5 rounded-lg transition-all duration-200 cursor-pointer"
-                        title="Edit bookmark"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                        </svg>
-                      </button>
-                    )}
+                    
+                    <button
+                      onClick={() => startEditing(bookmark)}
+                      className="p-2 text-[#6B7280] hover:text-[#2563EB] hover:bg-[#2563EB]/5 rounded-lg transition-all duration-200 cursor-pointer"
+                      title="Edit bookmark"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                      </svg>
+                    </button>
+
                     <button
                       onClick={() => onDelete(bookmark.id)}
                       className="p-2 text-[#6B7280] hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 cursor-pointer"

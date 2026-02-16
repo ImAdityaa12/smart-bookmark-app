@@ -2,8 +2,11 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Bookmark } from '@/types/database.types'
 
+// Local extension of Bookmark type to include clientId
+export type BookmarkWithClient = Bookmark & { clientId: string }
+
 export function useBookmarks(user: any) {
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
+  const [bookmarks, setBookmarks] = useState<BookmarkWithClient[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
@@ -17,6 +20,7 @@ export function useBookmarks(user: any) {
   const initialMount = useRef(true)
   const pendingInserts = useRef<Set<string>>(new Set())
   const pendingDeletes = useRef<Set<string>>(new Set())
+  const processedIds = useRef<Set<string>>(new Set())
 
   const fetchBookmarks = useCallback(async (page: number, query?: string) => {
     const url = query 
@@ -27,7 +31,12 @@ export function useBookmarks(user: any) {
       const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
-        setBookmarks(data.bookmarks || [])
+        // Map bookmarks to have a stable clientId for React keys
+        const bookmarksWithIds = (data.bookmarks || []).map((b: Bookmark) => ({
+          ...b,
+          clientId: b.id
+        }))
+        setBookmarks(bookmarksWithIds)
         setTotalPages(data.totalPages || 1)
         setTotalCount(data.total || 0)
       }
@@ -63,48 +72,43 @@ export function useBookmarks(user: any) {
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newBookmark = payload.new as Bookmark
-            const pendingKey = `${newBookmark.title}|${newBookmark.url}`
             
-            if (pendingInserts.current.has(pendingKey)) {
-              pendingInserts.current.delete(pendingKey)
-              setBookmarks((current) => {
-                const tempIndex = current.findIndex(b => b.id.startsWith('temp-') && b.url === newBookmark.url)
-                if (tempIndex !== -1) {
-                  const updated = [...current]
-                  // MUST use the real ID from server, otherwise subsequent actions (toggle pin) will fail
-                  updated[tempIndex] = newBookmark
-                  return updated
-                }
-                return current
-              })
+            // If we already handled this ID (via API response), ignore realtime
+            if (processedIds.current.has(newBookmark.id)) {
               return
             }
-
+            
             setBookmarks((current) => {
-              const alreadyExists = current.some(b => b.id === newBookmark.id)
-              if (alreadyExists) return current
+              if (current.some(b => b.id === newBookmark.id)) return current
+
+              // Check if it's our own insert (pending by URL/Title)
+              const normalize = (url: string) => url.toLowerCase().replace(/\/$/, '')
+              const pendingKey = `${newBookmark.title}|${newBookmark.url}`
+              
+              if (pendingInserts.current.has(pendingKey)) {
+                // Let API response handle it to avoid flickering
+                return current
+              }
+
+              // Truly external insert (from another tab/device)
               if (currentPage === 1 && !searchQuery) {
-                return [newBookmark, ...current].slice(0, 10)
+                setTotalCount(prev => prev + 1)
+                return [{ ...newBookmark, clientId: newBookmark.id }, ...current]
               }
               return current
             })
-            setTotalCount(prev => prev + 1)
-                              } else if (payload.eventType === 'DELETE') {
-                                const deletedId = payload.old.id
-                                
-                                if (pendingDeletes.current.has(deletedId)) {
-                                  pendingDeletes.current.delete(deletedId)
-                                  return
-                                }
-                    
-                                setBookmarks((current) => current.filter(b => b.id !== deletedId))
-                                setTotalCount(prev => Math.max(0, prev - 1))
-                              }
-                    
-           else if (payload.eventType === 'UPDATE') {
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id
+            if (pendingDeletes.current.has(deletedId)) {
+              pendingDeletes.current.delete(deletedId)
+              return
+            }
+            setBookmarks((current) => current.filter(b => b.id !== deletedId))
+            setTotalCount(prev => Math.max(0, prev - 1))
+          } else if (payload.eventType === 'UPDATE') {
             const updated = payload.new as Bookmark
             setBookmarks((current) =>
-              current.map(b => (b.id === updated.id ? updated : b))
+              current.map(b => (b.id === updated.id ? { ...updated, clientId: b.clientId } : b))
             )
           }
         }
@@ -129,8 +133,6 @@ export function useBookmarks(user: any) {
     
     if (!q) {
       setSearching(false)
-      // Only switch page if we were searching before (optimization)
-      // But here we just reset to page 1
       setIsSwitchingPage(true) 
       setCurrentPage(1)
       fetchBookmarks(1)
@@ -149,16 +151,53 @@ export function useBookmarks(user: any) {
     }
   }, [searchQuery, fetchBookmarks])
 
-  const addOptimisticBookmark = useCallback((newBookmark: { url: string; title: string; is_quick_access: boolean }) => {
-    const optimisticBookmark: Bookmark = {
+  const createBookmark = useCallback(async (newBookmark: { url: string; title: string; is_quick_access: boolean }) => {
+    const tempId = 'temp-' + Date.now()
+    const optimisticBookmark: BookmarkWithClient = {
       ...newBookmark,
-      id: 'temp-' + Date.now(),
+      id: tempId,
+      clientId: tempId, // Stable key
       user_id: user?.id ?? '',
       created_at: new Date().toISOString()
     }
-    pendingInserts.current.add(`${newBookmark.title}|${newBookmark.url}`)
+    
+    // 1. Add optimistic
     setBookmarks((current) => [optimisticBookmark, ...current])
     setTotalCount((prev) => prev + 1)
+    pendingInserts.current.add(`${newBookmark.title}|${newBookmark.url}`)
+
+    try {
+      // 2. Call API
+      const res = await fetch('/api/bookmarks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newBookmark),
+      })
+
+      if (res.ok) {
+        const realBookmark = await res.json()
+        
+        // 3. Mark as processed to ignore subsequent realtime signals for this ID
+        processedIds.current.add(realBookmark.id)
+        
+        // 4. Clean up pending inserts
+        pendingInserts.current.delete(`${newBookmark.title}|${newBookmark.url}`)
+
+        // 5. IMMEDIATELY swap temp data for real data in state but KEEP clientId stable
+        setBookmarks((current) => 
+          current.map(b => b.clientId === tempId ? { ...realBookmark, clientId: tempId } : b)
+        )
+      } else {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to save')
+      }
+    } catch (error) {
+      console.error('[useBookmarks] Create failed:', error)
+      pendingInserts.current.delete(`${newBookmark.title}|${newBookmark.url}`)
+      setBookmarks((current) => current.filter(b => b.clientId !== tempId))
+      setTotalCount((prev) => Math.max(0, prev - 1))
+      alert('Failed to add bookmark: ' + (error as Error).message)
+    }
   }, [user])
 
   const editBookmark = useCallback(async (id: string, updates: { title: string; url: string }) => {
@@ -173,6 +212,8 @@ export function useBookmarks(user: any) {
   }, [])
 
   const deleteBookmark = useCallback(async (id: string) => {
+    if (id.startsWith('temp-')) return
+    
     pendingDeletes.current.add(id)
     setBookmarks((current) => current.filter((b) => b.id !== id))
     setTotalCount((prev) => Math.max(0, prev - 1))
@@ -180,7 +221,8 @@ export function useBookmarks(user: any) {
   }, [])
 
   const toggleQuickAccess = useCallback(async (id: string, currentState: boolean) => {
-    console.log('[useBookmarks] toggleQuickAccess:', id, currentState)
+    if (id.startsWith('temp-')) return
+    
     const newState = !currentState
     setBookmarks((current) =>
       current.map((b) => (b.id === id ? { ...b, is_quick_access: newState } : b))
@@ -194,7 +236,6 @@ export function useBookmarks(user: any) {
     if (!res.ok) {
       const err = await res.json()
       console.error('[useBookmarks] Failed to toggle quick access:', err)
-      // Revert state on error
       setBookmarks((current) =>
         current.map((b) => (b.id === id ? { ...b, is_quick_access: currentState } : b))
       )
@@ -219,7 +260,7 @@ export function useBookmarks(user: any) {
     totalPages,
     totalCount,
     isSwitchingPage,
-    addOptimisticBookmark,
+    createBookmark,
     editBookmark,
     deleteBookmark,
     toggleQuickAccess,

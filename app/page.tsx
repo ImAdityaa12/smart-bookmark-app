@@ -41,7 +41,7 @@ export default function Home() {
     currentPage,
     totalPages,
     isSwitchingPage,
-    addOptimisticBookmark,
+    createBookmark,
     editBookmark,
     deleteBookmark,
     toggleQuickAccess,
@@ -49,9 +49,9 @@ export default function Home() {
   } = useBookmarks(user)
 
   const handleBookmarkAdded = useCallback((newBookmark: { url: string; title: string; is_quick_access: boolean }) => {
-    addOptimisticBookmark(newBookmark)
+    createBookmark(newBookmark)
     setShowAddModal(false)
-  }, [addOptimisticBookmark])
+  }, [createBookmark])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
