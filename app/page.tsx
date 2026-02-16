@@ -157,14 +157,14 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 animate-fade-in">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-300/50 animate-float">
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <div className="w-10 h-10 rounded-xl bg-[#2563EB] flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
             </svg>
           </div>
-          <p className="text-gray-500 font-medium">Loading your bookmarks...</p>
+          <p className="text-[13px] text-[#6B7280] font-medium">Loading your bookmarks…</p>
         </div>
       </div>
     )
@@ -175,25 +175,23 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 relative overflow-hidden">
-      <div className="absolute top-[-200px] left-[-100px] w-[500px] h-[500px] bg-purple-200/30 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-150px] right-[-100px] w-[400px] h-[400px] bg-indigo-200/30 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-pink-200/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#F3F4F6]">
+      <div className="max-w-[640px] mx-auto px-5 py-8">
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 relative z-10">
-        <header className="mb-8 animate-fade-in">
+        {/* Header */}
+        <header className="mb-6 animate-fade-in">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-300/50">
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#2563EB] flex items-center justify-center shadow-sm">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
                 </svg>
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-xl font-semibold text-[#111827]">
                   My Bookmarks
                 </h1>
-                <p className="text-sm text-gray-500 mt-0.5">
+                <p className="text-[13px] text-[#6B7280] mt-0.5">
                   {user.email}
                 </p>
               </div>
@@ -202,37 +200,26 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="glass-strong rounded-3xl border border-white/40 shadow-xl shadow-indigo-100/30 p-6 sm:p-8 mb-6 animate-slide-up">
-          <div className="flex items-center gap-2 mb-5">
-            <h2 className="text-lg font-semibold text-gray-800">Add Bookmark</h2>
-            {bookmarks.length > 0 && (
-              <span className="px-2.5 py-0.5 text-xs font-semibold bg-indigo-100 text-indigo-700 rounded-full">
-                {bookmarks.length}
-              </span>
-            )}
-          </div>
-          <AddBookmarkForm onBookmarkAdded={handleBookmarkAdded} />
-        </div>
-
+        {/* Search Bar */}
         {bookmarks.length > 0 && (
-          <div className="mb-4 animate-fade-in">
+          <div className="mb-6 animate-fade-in">
             <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                 </svg>
               </div>
               <input
                 type="text"
-                placeholder="Search bookmarks by title or URL..."
+                placeholder="Search bookmarks…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-10 py-3.5 glass-strong border border-white/40 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 outline-none transition-all duration-200 text-gray-800 placeholder:text-gray-400 shadow-md"
+                className="w-full pl-12 pr-10 py-3 bg-white border border-[#E5E7EB] rounded-[16px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] outline-none transition-all duration-200 text-[15px] text-[#111827] placeholder:text-[#6B7280]"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] rounded-lg transition-colors cursor-pointer"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -241,22 +228,43 @@ export default function Home() {
               )}
             </div>
             {searchQuery && !searching && searchResults !== null && (
-              <p className="text-sm text-gray-400 mt-2 ml-1">
+              <p className="text-[13px] text-[#6B7280] mt-2 ml-1">
                 {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for &ldquo;{searchQuery}&rdquo;
               </p>
             )}
             {searching && (
-              <p className="text-sm text-gray-400 mt-2 ml-1 flex items-center gap-1.5">
+              <p className="text-[13px] text-[#6B7280] mt-2 ml-1 flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5 animate-spin-slow" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Searching...
+                Searching…
               </p>
             )}
           </div>
         )}
 
+        {/* Add Bookmark Section */}
+        <div className="bg-white border border-[#E5E7EB] rounded-[16px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-4 mb-6 animate-slide-up">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-[13px] font-medium text-[#6B7280] uppercase tracking-wide">Add Bookmark</h2>
+            {bookmarks.length > 0 && (
+              <span className="px-2 py-0.5 text-[11px] font-semibold bg-[#2563EB]/10 text-[#2563EB] rounded-full">
+                {bookmarks.length}
+              </span>
+            )}
+          </div>
+          <AddBookmarkForm onBookmarkAdded={handleBookmarkAdded} />
+        </div>
+
+        {/* Section Title */}
+        {displayedBookmarks.length > 0 && (
+          <h3 className="text-[13px] font-medium text-[#6B7280] uppercase tracking-wide mb-3 mt-6">
+            {searchQuery ? 'Search Results' : 'Recently Added'}
+          </h3>
+        )}
+
+        {/* Bookmark List */}
         <BookmarkList bookmarks={displayedBookmarks} onDelete={handleDelete} onEdit={handleEdit} isSearching={!!searchQuery.trim()} />
       </div>
     </div>
