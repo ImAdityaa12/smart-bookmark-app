@@ -2,6 +2,7 @@
 
 import { useState, memo } from 'react'
 import { Bookmark } from '@/types/database.types'
+import { BookmarkWithClient } from '@/hooks/use-bookmarks'
 import { motion, AnimatePresence } from 'framer-motion'
 
 function getFaviconUrl(url: string) {
@@ -38,7 +39,7 @@ function getDomainFromUrl(url: string) {
 }
 
 export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAccess, isSearching }: {
-  bookmarks: Bookmark[]
+  bookmarks: BookmarkWithClient[]
   onDelete: (id: string) => void
   onEdit: (id: string, updates: { title: string; url: string }) => void
   onToggleQuickAccess: (id: string, currentState: boolean) => void
@@ -48,7 +49,7 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAc
   const [editTitle, setEditTitle] = useState('')
   const [editUrl, setEditUrl] = useState('')
 
-  const startEditing = (bookmark: Bookmark) => {
+  const startEditing = (bookmark: BookmarkWithClient) => {
     setEditingId(bookmark.id)
     setEditTitle(bookmark.title)
     setEditUrl(bookmark.url)
@@ -119,7 +120,7 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAc
 
           return (
             <motion.div
-              key={(bookmark as any).clientId || bookmark.id}
+              key={bookmark.clientId}
               layout
               initial={{ opacity: 0, y: -20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}

@@ -15,8 +15,6 @@ export async function PATCH(
   const { id } = await params
   const { title, url, is_quick_access } = await request.json()
 
-  console.log(`[API PATCH] Attempting update: id=${id}, user_id=${user.id}`)
-
   if (title === undefined && url === undefined && is_quick_access === undefined) {
     return NextResponse.json({ error: 'Title, URL, or Quick Access state is required' }, { status: 400 })
   }

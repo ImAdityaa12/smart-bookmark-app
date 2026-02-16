@@ -129,7 +129,7 @@ export function AddBookmarkForm({ onBookmarkAdded }: {
       <motion.button
         type="submit"
         disabled={loading}
-        whileHover={{ y: -2, shadow: "0 10px 25px -5px rgba(37, 99, 235, 0.4)" }}
+        whileHover={{ y: -2, boxShadow: "0 10px 25px -5px rgba(37, 99, 235, 0.4)" }}
         whileTap={{ scale: 0.98, y: 0 }}
         className="group w-full flex items-center justify-center gap-2 px-6 py-4 bg-[#2563EB] text-white text-[15px] font-bold rounded-xl hover:bg-[#1D4ED8] transition-all duration-300 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
       >

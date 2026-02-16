@@ -1,6 +1,7 @@
 'use client'
 
 import { Bookmark } from '@/types/database.types'
+import { BookmarkWithClient } from '@/hooks/use-bookmarks'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useMemo } from 'react'
 
@@ -14,7 +15,7 @@ function getFaviconUrl(url: string) {
 }
 
 interface RecentBookmarksGridProps {
-  bookmarks: Bookmark[]
+  bookmarks: BookmarkWithClient[]
   onRemove: (id: string, currentState: boolean) => void
 }
 
@@ -104,7 +105,7 @@ export function RecentBookmarksGrid({ bookmarks, onRemove }: RecentBookmarksGrid
             {displayedItems.map((bookmark) => {
               const faviconUrl = getFaviconUrl(bookmark.url)
               return (
-                <div key={(bookmark as any).clientId || bookmark.id} className="relative group w-16">
+                <div key={bookmark.clientId} className="relative group w-16">
                   <motion.a
                     layout
                     href={bookmark.url}
