@@ -13,15 +13,18 @@ export async function PATCH(
   }
 
   const { id } = await params
-  const { title, url } = await request.json()
+  const { title, url, is_quick_access } = await request.json()
 
-  if (!title && !url) {
-    return NextResponse.json({ error: 'Title or URL is required' }, { status: 400 })
+  console.log(`[API PATCH] Attempting update: id=${id}, user_id=${user.id}`)
+
+  if (title === undefined && url === undefined && is_quick_access === undefined) {
+    return NextResponse.json({ error: 'Title, URL, or Quick Access state is required' }, { status: 400 })
   }
 
-  const updateData: Record<string, string> = {}
-  if (title) updateData.title = title
-  if (url) updateData.url = url
+  const updateData: Record<string, any> = {}
+  if (title !== undefined) updateData.title = title
+  if (url !== undefined) updateData.url = url
+  if (is_quick_access !== undefined) updateData.is_quick_access = is_quick_access
 
   const { data, error } = await supabase
     .from('bookmarks')
@@ -29,10 +32,14 @@ export async function PATCH(
     .eq('id', id)
     .eq('user_id', user.id)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 })
   }
 
   return NextResponse.json(data)

@@ -71,8 +71,8 @@ export function useBookmarks(user: any) {
                 const tempIndex = current.findIndex(b => b.id.startsWith('temp-') && b.url === newBookmark.url)
                 if (tempIndex !== -1) {
                   const updated = [...current]
-                  // Preserve temp ID to prevent React remount flicker
-                  updated[tempIndex] = { ...newBookmark, id: updated[tempIndex].id }
+                  // MUST use the real ID from server, otherwise subsequent actions (toggle pin) will fail
+                  updated[tempIndex] = newBookmark
                   return updated
                 }
                 return current
@@ -149,7 +149,7 @@ export function useBookmarks(user: any) {
     }
   }, [searchQuery, fetchBookmarks])
 
-  const addOptimisticBookmark = useCallback((newBookmark: { url: string; title: string }) => {
+  const addOptimisticBookmark = useCallback((newBookmark: { url: string; title: string; is_quick_access: boolean }) => {
     const optimisticBookmark: Bookmark = {
       ...newBookmark,
       id: 'temp-' + Date.now(),
@@ -179,6 +179,29 @@ export function useBookmarks(user: any) {
     await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' })
   }, [])
 
+  const toggleQuickAccess = useCallback(async (id: string, currentState: boolean) => {
+    console.log('[useBookmarks] toggleQuickAccess:', id, currentState)
+    const newState = !currentState
+    setBookmarks((current) =>
+      current.map((b) => (b.id === id ? { ...b, is_quick_access: newState } : b))
+    )
+    const res = await fetch(`/api/bookmarks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_quick_access: newState }),
+    })
+
+    if (!res.ok) {
+      const err = await res.json()
+      console.error('[useBookmarks] Failed to toggle quick access:', err)
+      // Revert state on error
+      setBookmarks((current) =>
+        current.map((b) => (b.id === id ? { ...b, is_quick_access: currentState } : b))
+      )
+      alert('Failed to save Quick Access state: ' + (err.error || 'Unknown error'))
+    }
+  }, [])
+
   const changePage = (newPage: number) => {
     setIsSwitchingPage(true)
     setCurrentPage(newPage)
@@ -199,6 +222,7 @@ export function useBookmarks(user: any) {
     addOptimisticBookmark,
     editBookmark,
     deleteBookmark,
+    toggleQuickAccess,
     changePage
   }
 }

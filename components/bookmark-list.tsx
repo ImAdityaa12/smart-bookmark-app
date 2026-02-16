@@ -37,10 +37,11 @@ function getDomainFromUrl(url: string) {
   }
 }
 
-export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, isSearching }: {
+export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAccess, isSearching }: {
   bookmarks: Bookmark[]
   onDelete: (id: string) => void
   onEdit: (id: string, updates: { title: string; url: string }) => void
+  onToggleQuickAccess: (id: string, currentState: boolean) => void
   isSearching?: boolean
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -130,10 +131,33 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, isSearching }: 
                 mass: 1,
                 opacity: { duration: 0.2 }
               }}
-              className={`group bg-white border rounded-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-4 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-px transition-shadow duration-200 ${
+              className={`group relative bg-white border rounded-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-4 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-px transition-shadow duration-200 ${
                 isEditing ? 'border-[#2563EB] ring-2 ring-[#2563EB]/10' : 'border-[#E5E7EB]'
               }`}
             >
+              {/* Quick Access Pin - Top Right */}
+              {!isEditing && !isOptimistic && (
+                <button
+                  onClick={() => onToggleQuickAccess(bookmark.id, bookmark.is_quick_access)}
+                  className={`absolute -top-2 -right-2 z-10 p-1.5 rounded-full shadow-sm border border-[#E5E7EB] transition-all duration-200 cursor-pointer ${
+                    bookmark.is_quick_access 
+                      ? 'text-white bg-[#2563EB] opacity-100' 
+                      : 'text-[#6B7280] bg-white hover:text-[#2563EB] opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
+                  }`}
+                  title={bookmark.is_quick_access ? "Remove from Quick Access" : "Add to Quick Access"}
+                >
+                  <svg 
+                    className={`w-3.5 h-3.5 transition-transform duration-200 ${bookmark.is_quick_access ? 'rotate-[30deg] fill-current' : ''}`} 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor" 
+                    strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11.5V5M15 11.5a3 3 0 1 1-6 0M15 11.5a3 3 0 1 0-6 0M9 11.5V5M9 5a2 2 0 1 1 4 0M9 5a2 2 0 1 0 4 0M15 5h1M9 5H8M7 15h10M12 15v7" />
+                  </svg>
+                </button>
+              )}
+
               {isEditing ? (
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#2563EB]/10 flex items-center justify-center">
@@ -225,7 +249,7 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, isSearching }: 
                       href={bookmark.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 text-[#6B7280] hover:text-[#2563EB] hover:bg-[#2563EB]/5 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+                      className="p-2 text-[#6B7280] hover:text-[#2563EB] hover:bg-[#2563EB]/5 rounded-lg transition-all duration-200"
                       title="Open link"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -235,17 +259,17 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, isSearching }: 
                     {!isOptimistic && (
                       <button
                         onClick={() => startEditing(bookmark)}
-                        className="p-2 text-[#6B7280] hover:text-[#2563EB] hover:bg-[#2563EB]/5 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 cursor-pointer"
+                        className="p-2 text-[#6B7280] hover:text-[#2563EB] hover:bg-[#2563EB]/5 rounded-lg transition-all duration-200 cursor-pointer"
                         title="Edit bookmark"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
                         </svg>
                       </button>
                     )}
                     <button
                       onClick={() => onDelete(bookmark.id)}
-                      className="p-2 text-[#6B7280] hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 cursor-pointer"
+                      className="p-2 text-[#6B7280] hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 cursor-pointer"
                       title="Delete bookmark"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

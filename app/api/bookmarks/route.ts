@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { title, url } = await request.json()
+  const { title, url, is_quick_access } = await request.json()
 
   if (!title || !url) {
     return NextResponse.json({ error: 'Title and URL are required' }, { status: 400 })
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from('bookmarks')
-    .insert([{ title, url, user_id: user.id }])
+    .insert([{ title, url, user_id: user.id, is_quick_access: !!is_quick_access }])
     .select()
     .single()
 

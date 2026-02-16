@@ -2,7 +2,7 @@ import { AddBookmarkForm } from '@/components/add-bookmark-form'
 
 interface BookmarkModalProps {
   onClose: () => void
-  onBookmarkAdded: (bookmark: { url: string; title: string }) => void
+  onBookmarkAdded: (bookmark: { url: string; title: string; is_quick_access: boolean }) => void
 }
 
 export function BookmarkModal({ onClose, onBookmarkAdded }: BookmarkModalProps) {

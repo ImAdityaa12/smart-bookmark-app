@@ -44,10 +44,11 @@ export default function Home() {
     addOptimisticBookmark,
     editBookmark,
     deleteBookmark,
+    toggleQuickAccess,
     changePage
   } = useBookmarks(user)
 
-  const handleBookmarkAdded = useCallback((newBookmark: { url: string; title: string }) => {
+  const handleBookmarkAdded = useCallback((newBookmark: { url: string; title: string; is_quick_access: boolean }) => {
     addOptimisticBookmark(newBookmark)
     setShowAddModal(false)
   }, [addOptimisticBookmark])
@@ -121,6 +122,7 @@ export default function Home() {
               bookmarks={bookmarks} 
               onDelete={deleteBookmark} 
               onEdit={editBookmark} 
+              onToggleQuickAccess={toggleQuickAccess}
               isSearching={!!searchQuery.trim()} 
             />
           )}

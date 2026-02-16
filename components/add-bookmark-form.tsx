@@ -3,10 +3,11 @@
 import { useState } from 'react'
 
 export function AddBookmarkForm({ onBookmarkAdded }: {
-  onBookmarkAdded: (bookmark: { url: string; title: string }) => void
+  onBookmarkAdded: (bookmark: { url: string; title: string; is_quick_access: boolean }) => void
 }) {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
+  const [isQuickAccess, setIsQuickAccess] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -15,14 +16,15 @@ export function AddBookmarkForm({ onBookmarkAdded }: {
 
     setLoading(true)
 
-    onBookmarkAdded({ url, title })
+    onBookmarkAdded({ url, title, is_quick_access: isQuickAccess })
     setUrl('')
     setTitle('')
+    setIsQuickAccess(false)
 
     const res = await fetch('/api/bookmarks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, title }),
+      body: JSON.stringify({ url, title, is_quick_access: isQuickAccess }),
     })
 
     if (!res.ok) {
@@ -77,6 +79,29 @@ export function AddBookmarkForm({ onBookmarkAdded }: {
               required
             />
           </div>
+        </div>
+        <div className="flex items-center gap-2 ml-1">
+          <label className="relative flex items-center cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={isQuickAccess}
+              onChange={(e) => setIsQuickAccess(e.target.checked)}
+              className="peer sr-only"
+            />
+            <div className="w-5 h-5 bg-[#F3F4F6] border border-[#E5E7EB] rounded-md peer-checked:bg-[#2563EB] peer-checked:border-[#2563EB] transition-all duration-200" />
+            <svg 
+              className="absolute left-1 top-1 w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity duration-200" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor" 
+              strokeWidth={4}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="ml-2 text-[14px] font-medium text-[#374151] group-hover:text-[#111827] transition-colors">
+              Add to Quick Access
+            </span>
+          </label>
         </div>
       </div>
       <button
