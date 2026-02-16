@@ -12,6 +12,7 @@ import { BookmarkModal } from '@/components/bookmark-modal'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBookmarks } from '@/hooks/use-bookmarks'
+import { motion } from 'framer-motion'
 
 export default function Home() {
   const [user, setUser] = useState<any>(null)
@@ -71,14 +72,59 @@ export default function Home() {
 
   if (!user || loading) {
     return (
-      <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 animate-fade-in">
-          <div className="w-10 h-10 rounded-xl bg-[#2563EB] flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-6">
+        <div className="flex flex-col items-center max-w-sm w-full text-center">
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ 
+              scale: [0.8, 1.1, 1], 
+              opacity: 1,
+              rotate: [0, -5, 5, 0]
+            }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="w-20 h-20 rounded-[24px] bg-[#2563EB] flex items-center justify-center shadow-[0_20px_50px_rgba(37,99,235,0.3)] mb-8"
+          >
+            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
             </svg>
-          </div>
-          <p className="text-[13px] text-[#6B7280] font-medium">Loading your bookmarks…</p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <h2 className="text-xl font-bold text-[#111827] mb-2">Smart Bookmarks</h2>
+            <div className="flex items-center justify-center gap-1.5">
+              <span className="text-[14px] text-[#6B7280] font-medium">Setting up your collection</span>
+              <motion.span 
+                animate={{ opacity: [0, 1, 0] }}
+                transition={{ repeat: Infinity, duration: 1.5, times: [0, 0.5, 1] }}
+                className="text-[#2563EB]"
+              >
+                ...
+              </motion.span>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: "100%" }}
+            transition={{ duration: 2, ease: "easeInOut" }}
+            className="h-1 bg-[#E5E7EB] rounded-full mt-8 overflow-hidden relative w-48"
+          >
+            <motion.div 
+              animate={{ 
+                x: ["-100%", "100%"]
+              }}
+              transition={{ 
+                repeat: Infinity, 
+                duration: 1.5, 
+                ease: "linear" 
+              }}
+              className="absolute inset-0 bg-[#2563EB] w-1/2"
+            />
+          </motion.div>
         </div>
       </div>
     )
