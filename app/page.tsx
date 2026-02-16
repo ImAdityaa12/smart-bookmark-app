@@ -13,9 +13,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBookmarks } from '@/hooks/use-bookmarks'
 import { motion } from 'framer-motion'
+import { User } from '@supabase/supabase-js'
 
 export default function Home() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -134,7 +135,7 @@ export default function Home() {
     <div className="min-h-screen bg-[#F3F4F6]">
       <div className="max-w-[640px] mx-auto px-5 py-8">
         <Header 
-          email={user.email} 
+          email={user.email ?? ''} 
           onAddBookmark={() => setShowAddModal(true)} 
         />
 
