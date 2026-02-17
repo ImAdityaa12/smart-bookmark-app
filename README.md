@@ -75,6 +75,67 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 -   `types/`: TypeScript type definitions.
 -   `database.sql`: SQL schema and RLS policies.
 
+## 🐛 Troubleshooting
+
+### Problem 1: Production Login Redirects to Localhost
+
+**Issue**: After successful Google authentication in production, users were redirected back to `http://localhost:3000` instead of the production domain.
+
+**Root Cause**: The OAuth redirect URL was being determined server-side using `process.env.NEXT_PUBLIC_APP_URL`, which wasn't set in production, causing it to fall back to the hardcoded localhost default.
+
+**Solution**: 
+1. Modified `signInWithGoogle()` in `app/actions.ts` to accept an optional `redirectOrigin` parameter
+2. Updated `components/google-sign-in-button.tsx` to pass `window.location.origin` from the client side
+3. This ensures the OAuth flow uses the actual domain where the login was initiated
+
+```typescript
+// In google-sign-in-button.tsx
+const origin = window.location.origin
+const url = await signInWithGoogle(origin)
+```
+
+**Additional Steps**:
+- Set `NEXT_PUBLIC_APP_URL` environment variable in your production deployment
+- Add your production URL to Supabase Auth → URL Configuration → Redirect URLs: `https://yourdomain.com/auth/callback`
+
+### Problem 2: Using Legacy Anon Key Instead of Modern Keys
+
+**Issue**: The application was using the deprecated `SUPABASE_ANON_KEY` which is now in legacy mode.
+
+**Root Cause**: Supabase has moved to a new key system with separate publishable and secret keys for better security.
+
+**Solution**:
+1. Updated all Supabase client configurations to use the new key system:
+   - **Client-side** (`utils/supabase/client.ts`): Uses `NEXT_PUBLIC_SUPABASE_KEY` (publishable key)
+   - **Server-side** (`utils/supabase/server.ts`): Uses `SUPABASE_SECRET_KEY` (secret key)
+   - **Middleware** (`utils/supabase/middleware.ts`): Uses `SUPABASE_SECRET_KEY` (secret key)
+
+2. Updated `.env.local` with the new key names:
+```env
+NEXT_PUBLIC_SUPABASE_KEY=sb_publishable_...
+SUPABASE_SECRET_KEY=sb_secret_...
+```
+
+**Why This Matters**: The new key system provides better security by separating client-facing keys from server-only keys, preventing accidental exposure of sensitive credentials.
+
+### Problem 3: Google OAuth Not Working in Production
+
+**Common Causes & Solutions**:
+
+1. **Missing Redirect URLs in Supabase**:
+   - Go to Supabase Dashboard → Authentication → URL Configuration
+   - Add both development and production callback URLs:
+     - `http://localhost:3000/auth/callback`
+     - `https://yourdomain.com/auth/callback`
+
+2. **Google Cloud Console Configuration**:
+   - Ensure your Google OAuth app has the Supabase callback URL in Authorized redirect URIs:
+     - `https://your-project-ref.supabase.co/auth/v1/callback`
+
+3. **Missing Environment Variables**:
+   - Verify all required environment variables are set in your production environment
+   - Double-check that `NEXT_PUBLIC_APP_URL` matches your actual production domain
+
 ## 📝 License
 
 This project is open source. Feel free to use and modify it as you wish.
