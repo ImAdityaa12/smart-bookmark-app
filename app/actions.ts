@@ -149,7 +149,7 @@ export async function getCurrentUser() {
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const origin = process.env.NEXT_PUBLIC_APP_URL
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
