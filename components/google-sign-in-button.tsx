@@ -5,7 +5,7 @@ import { signInWithGoogle } from '@/app/actions'
 export function GoogleSignInButton() {
   const handleSignIn = async () => {
     try {
-      const url = await signInWithGoogle(window.location.origin)
+      const url = await signInWithGoogle()
       if (url) {
         window.location.assign(url)
       }
