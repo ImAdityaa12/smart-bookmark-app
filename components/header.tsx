@@ -1,11 +1,8 @@
-import { SignOutButton } from '@/components/sign-out-button'
-
 interface HeaderProps {
-  email: string
   onAddBookmark: () => void
 }
 
-export function Header({ email, onAddBookmark }: HeaderProps) {
+export function Header({ onAddBookmark }: HeaderProps) {
   return (
     <header className="mb-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -20,7 +17,7 @@ export function Header({ email, onAddBookmark }: HeaderProps) {
               My Bookmarks
             </h1>
             <p className="text-[13px] text-[#6B7280] mt-0.5">
-              {email}
+              Welcome back!
             </p>
           </div>
         </div>
@@ -34,7 +31,6 @@ export function Header({ email, onAddBookmark }: HeaderProps) {
             </svg>
             Add Bookmark
           </button>
-          <SignOutButton />
         </div>
       </div>
     </header>
