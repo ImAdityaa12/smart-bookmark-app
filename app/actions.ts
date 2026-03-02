@@ -326,3 +326,69 @@ export async function getBookmarksInFolderAction(folderId: string, page = 1, lim
     totalPages: Math.ceil((count || 0) / limit),
   }
 }
+
+export async function getFoldersWithBookmarksAction() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Unauthorized')
+
+  // Get folders
+  const { data: folders, error: foldersError } = await supabase
+    .from('folders')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true })
+
+  if (foldersError) throw new Error(foldersError.message)
+
+  // Get all bookmark-folder associations for these folders
+  const { data: associations, error: assocError } = await supabase
+    .from('bookmark_folders')
+    .select('bookmark_id, folder_id, bookmarks(*)')
+    .in('folder_id', folders.map(f => f.id))
+
+  if (assocError) throw new Error(assocError.message)
+
+  // Group bookmarks by folder
+  const foldersWithBookmarks = folders.map(folder => {
+    const folderBookmarks = associations
+      .filter(a => a.folder_id === folder.id)
+      .map(a => a.bookmarks)
+      .filter(Boolean) as any[]
+
+    return {
+      ...folder,
+      bookmarks: folderBookmarks,
+      bookmark_count: folderBookmarks.length
+    }
+  })
+
+  return foldersWithBookmarks
+}
+
+export async function moveBookmarkAction(bookmarkId: string, fromFolderId: string | null, toFolderId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Unauthorized')
+
+  if (fromFolderId) {
+    const { error: deleteError } = await supabase
+      .from('bookmark_folders')
+      .delete()
+      .eq('bookmark_id', bookmarkId)
+      .eq('folder_id', fromFolderId)
+    
+    if (deleteError) throw new Error(deleteError.message)
+  }
+
+  const { error: insertError } = await supabase
+    .from('bookmark_folders')
+    .upsert([{ bookmark_id: bookmarkId, folder_id: toFolderId }], { onConflict: 'bookmark_id,folder_id' })
+
+  if (insertError) throw new Error(insertError.message)
+
+  revalidatePath('/folders')
+  return { success: true }
+}

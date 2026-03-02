@@ -135,7 +135,7 @@ export default function Home() {
 
   if (!user || loading) {
     return (
-      <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-6">
+      <div className="flex items-center justify-center p-6 h-[80vh]">
         <div className="flex flex-col items-center max-w-sm w-full text-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
@@ -195,8 +195,7 @@ export default function Home() {
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="min-h-screen bg-[#F3F4F6]">
-        <div className="max-w-[640px] mx-auto px-5 py-8">
+      <div className="max-w-[640px] mx-auto px-5 py-8">
           <Header
             email={user.email ?? ''}
             onAddBookmark={() => setShowAddModal(true)}
@@ -272,8 +271,6 @@ export default function Home() {
             onBookmarkAdded={handleBookmarkAdded}
           />
         )}
-      </div>
-
       <DragOverlay>
         {activeDragBookmark ? (
           <BookmarkDragOverlay bookmark={activeDragBookmark} />
