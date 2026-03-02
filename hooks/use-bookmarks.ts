@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Bookmark } from '@/types/database.types'
+import { User } from '@supabase/supabase-js'
 import { 
   getBookmarks, 
   getQuickAccessBookmarks, 
@@ -11,7 +12,7 @@ import {
 // Local extension of Bookmark type to include clientId
 export type BookmarkWithClient = Bookmark & { clientId: string }
 
-export function useBookmarks(user: any) {
+export function useBookmarks(user: User | null) {
   const [bookmarks, setBookmarks] = useState<BookmarkWithClient[]>([])
   const [quickAccessBookmarks, setQuickAccessBookmarks] = useState<BookmarkWithClient[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,10 +92,11 @@ export function useBookmarks(user: any) {
     }
   }, [searchQuery, fetchBookmarks])
 
-  const createBookmark = useCallback(async (newBookmark: { url: string; title: string; is_quick_access: boolean }) => {
+  const createBookmark = useCallback(async (newBookmark: { url: string; title: string; image_url?: string; is_quick_access: boolean }) => {
     const tempId = 'temp-' + Date.now()
     const optimisticBookmark: BookmarkWithClient = {
       ...newBookmark,
+      image_url: newBookmark.image_url || null,
       id: tempId,
       clientId: tempId, // Stable key
       user_id: user?.id ?? '',
@@ -130,7 +132,7 @@ export function useBookmarks(user: any) {
     }
   }, [user])
 
-  const editBookmark = useCallback(async (id: string, updates: { title: string; url: string }) => {
+  const editBookmark = useCallback(async (id: string, updates: { title: string; url: string; image_url?: string }) => {
     const updateFn = (current: BookmarkWithClient[]) => 
       current.map((b) => (b.id === id ? { ...b, ...updates } : b))
     

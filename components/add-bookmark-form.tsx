@@ -4,10 +4,11 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export function AddBookmarkForm({ onBookmarkAdded }: {
-  onBookmarkAdded: (bookmark: { url: string; title: string; is_quick_access: boolean }) => void
+  onBookmarkAdded: (bookmark: { url: string; title: string; image_url?: string; is_quick_access: boolean }) => void
 }) {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
   const [isQuickAccess, setIsQuickAccess] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -16,11 +17,12 @@ export function AddBookmarkForm({ onBookmarkAdded }: {
     if (!url || !title) return
 
     setLoading(true)
-    onBookmarkAdded({ url, title, is_quick_access: isQuickAccess })
+    onBookmarkAdded({ url, title, image_url: imageUrl || undefined, is_quick_access: isQuickAccess })
     
     // Reset form
     setUrl('')
     setTitle('')
+    setImageUrl('')
     setIsQuickAccess(false)
     setLoading(false)
   }
@@ -86,9 +88,36 @@ export function AddBookmarkForm({ onBookmarkAdded }: {
         </motion.div>
 
         <motion.div 
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <label className="block text-[13px] font-bold text-[#6B7280] mb-1.5 ml-1 uppercase tracking-wider">
+            Image URL (Optional)
+          </label>
+          <div className="relative group">
+            <motion.div 
+              whileHover={{ scale: 1.2, rotate: 5 }}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] group-focus-within:text-[#2563EB] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+              </svg>
+            </motion.div>
+            <input
+              type="url"
+              placeholder="https://example.com/image.png"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-[#F3F4F6] border border-transparent rounded-xl focus:ring-4 focus:ring-[#2563EB]/10 focus:border-[#2563EB] focus:bg-white outline-none transition-all duration-300 text-[15px] text-[#111827] placeholder:text-[#9CA3AF]"
+            />
+          </div>
+        </motion.div>
+
+        <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.4 }}
           className="flex items-center gap-2 ml-1"
         >
           <label className="relative flex items-center cursor-pointer group">

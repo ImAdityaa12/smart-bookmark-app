@@ -3,6 +3,7 @@ export type Bookmark = {
   user_id: string
   title: string
   url: string
+  image_url?: string | null
   is_quick_access: boolean
   created_at: string
 }

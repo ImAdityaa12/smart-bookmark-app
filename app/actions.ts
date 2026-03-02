@@ -63,7 +63,7 @@ export async function getQuickAccessBookmarks() {
   return data
 }
 
-export async function createBookmarkAction(formData: { title: string; url: string; is_quick_access: boolean }) {
+export async function createBookmarkAction(formData: { title: string; url: string; image_url?: string; is_quick_access: boolean }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -71,7 +71,7 @@ export async function createBookmarkAction(formData: { title: string; url: strin
     throw new Error('Unauthorized')
   }
 
-  const { title, url, is_quick_access } = formData
+  const { title, url, image_url, is_quick_access } = formData
 
   if (!title || !url) {
     throw new Error('Title and URL are required')
@@ -79,7 +79,7 @@ export async function createBookmarkAction(formData: { title: string; url: strin
 
   const { data, error } = await supabase
     .from('bookmarks')
-    .insert([{ title, url, user_id: user.id, is_quick_access: !!is_quick_access }])
+    .insert([{ title, url, image_url, user_id: user.id, is_quick_access: !!is_quick_access }])
     .select()
     .single()
 
@@ -91,7 +91,7 @@ export async function createBookmarkAction(formData: { title: string; url: strin
   return data
 }
 
-export async function updateBookmarkAction(id: string, updates: { title?: string; url?: string; is_quick_access?: boolean }) {
+export async function updateBookmarkAction(id: string, updates: { title?: string; url?: string; image_url?: string; is_quick_access?: boolean }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 

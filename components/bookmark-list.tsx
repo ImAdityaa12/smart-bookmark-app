@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, memo } from 'react'
-import { Bookmark } from '@/types/database.types'
 import { BookmarkWithClient } from '@/hooks/use-bookmarks'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -41,32 +40,40 @@ function getDomainFromUrl(url: string) {
 export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAccess, isSearching }: {
   bookmarks: BookmarkWithClient[]
   onDelete: (id: string) => void
-  onEdit: (id: string, updates: { title: string; url: string }) => void
+  onEdit: (id: string, updates: { title: string; url: string; image_url?: string }) => void
   onToggleQuickAccess: (id: string, currentState: boolean) => void
   isSearching?: boolean
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editUrl, setEditUrl] = useState('')
+  const [editImageUrl, setEditImageUrl] = useState('')
 
   const startEditing = (bookmark: BookmarkWithClient) => {
     setEditingId(bookmark.id)
     setEditTitle(bookmark.title)
     setEditUrl(bookmark.url)
+    setEditImageUrl(bookmark.image_url || '')
   }
 
   const cancelEditing = () => {
     setEditingId(null)
     setEditTitle('')
     setEditUrl('')
+    setEditImageUrl('')
   }
 
   const saveEdit = () => {
     if (!editingId || !editTitle.trim() || !editUrl.trim()) return
-    onEdit(editingId, { title: editTitle.trim(), url: editUrl.trim() })
+    onEdit(editingId, { 
+      title: editTitle.trim(), 
+      url: editUrl.trim(),
+      image_url: editImageUrl.trim() || undefined
+    })
     setEditingId(null)
     setEditTitle('')
     setEditUrl('')
+    setEditImageUrl('')
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -115,7 +122,6 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAc
       <AnimatePresence initial={false}>
         {bookmarks.map((bookmark) => {
           const faviconUrl = getFaviconUrl(bookmark.url)
-          const isOptimistic = bookmark.id.startsWith('temp-')
           const isEditing = editingId === bookmark.id
 
           return (
@@ -184,6 +190,14 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAc
                       className="w-full px-3 py-2 bg-white border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] outline-none transition-all duration-200 text-[13px] text-[#6B7280]"
                       placeholder="https://example.com"
                     />
+                    <input
+                      type="url"
+                      value={editImageUrl}
+                      onChange={(e) => setEditImageUrl(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      className="w-full px-3 py-2 bg-white border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] outline-none transition-all duration-200 text-[13px] text-[#6B7280]"
+                      placeholder="Custom Image URL (optional)"
+                    />
                     <div className="flex items-center gap-2 pt-1">
                       <button
                         onClick={saveEdit}
@@ -209,7 +223,16 @@ export const BookmarkList = memo(({ bookmarks, onDelete, onEdit, onToggleQuickAc
               ) : (
                 <div className="flex items-center gap-3">
                   <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#F3F4F6] border border-[#E5E7EB] flex items-center justify-center overflow-hidden">
-                    {faviconUrl ? (
+                    {bookmark.image_url ? (
+                      <img
+                        src={bookmark.image_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = faviconUrl || ''
+                        }}
+                      />
+                    ) : faviconUrl ? (
                       <img
                         src={faviconUrl}
                         alt=""

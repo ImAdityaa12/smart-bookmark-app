@@ -4,6 +4,7 @@ create table bookmarks (
   user_id uuid references auth.users(id) on delete cascade not null,
   title text not null,
   url text not null,
+  image_url text,
   is_quick_access boolean default false not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
