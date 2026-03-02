@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { Bookmark, Folder } from '@/types/database.types'
 
 export async function getBookmarks(page = 1, limit = 10, q?: string) {
   const supabase = await createClient()
