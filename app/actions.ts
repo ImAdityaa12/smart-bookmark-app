@@ -208,6 +208,7 @@ export async function createFolderAction(name: string, color: string) {
 
   if (error) throw new Error(error.message)
 
+  revalidatePath('/')
   return { ...data, bookmark_count: 0 }
 }
 
@@ -227,6 +228,7 @@ export async function renameFolderAction(id: string, name: string, color: string
 
   if (error) throw new Error(error.message)
 
+  revalidatePath('/')
   return data
 }
 
@@ -244,6 +246,7 @@ export async function deleteFolderAction(id: string) {
 
   if (error) throw new Error(error.message)
 
+  revalidatePath('/')
   return { success: true }
 }
 

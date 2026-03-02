@@ -62,13 +62,20 @@ export default function Home() {
     folderTotalCount,
     folderCurrentPage,
     folderTotalPages,
+    fetchFolders,
     selectFolder,
     changeFolderPage,
     createFolder,
     renameFolder,
     deleteFolder,
     addBookmarkToFolder,
-  } = useFolders(user)
+    removeBookmarkFromFolder,
+  } = useFolders(user, searchQuery)
+
+  const handleDeleteBookmark = useCallback(async (id: string) => {
+    await deleteBookmark(id)
+    fetchFolders()
+  }, [deleteBookmark, fetchFolders])
 
   const handleBookmarkAdded = useCallback((newBookmark: { url: string; title: string; is_quick_access: boolean }) => {
     createBookmark(newBookmark)
@@ -103,7 +110,7 @@ export default function Home() {
     const bookmarkId = active.data.current?.bookmarkId as string | undefined
     const folderId = over.id as string
 
-    if (bookmarkId && folderId && folders.some((f) => f.id === folderId)) {
+    if (bookmarkId && folderId && !folderId.startsWith('temp-folder-') && folders.some((f) => f.id === folderId)) {
       addBookmarkToFolder(bookmarkId, folderId)
     }
   }
@@ -119,6 +126,12 @@ export default function Home() {
   const activeDragBookmark = activeDragBookmarkId
     ? (bookmarks.find((b) => b.id === activeDragBookmarkId) ?? folderBookmarks.find((b) => b.id === activeDragBookmarkId) ?? null)
     : null
+
+  const handleRemoveFromFolder = useCallback((bookmarkId: string) => {
+    if (selectedFolderId) {
+      removeBookmarkFromFolder(bookmarkId, selectedFolderId)
+    }
+  }, [selectedFolderId, removeBookmarkFromFolder])
 
   if (!user || loading) {
     return (
@@ -234,10 +247,12 @@ export default function Home() {
             ) : (
               <BookmarkList
                 bookmarks={displayBookmarks}
-                onDelete={deleteBookmark}
+                onDelete={handleDeleteBookmark}
                 onEdit={editBookmark}
                 onToggleQuickAccess={toggleQuickAccess}
                 isSearching={!!searchQuery.trim()}
+                onRemoveFromFolder={handleRemoveFromFolder}
+                isInFolder={!!selectedFolderId}
               />
             )}
           </div>
