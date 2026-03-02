@@ -115,11 +115,9 @@ function DraggableBookmarkRow({
 
   return (
     <motion.div
-      ref={setNodeRef}
-      {...attributes}
       layout
       initial={{ opacity: 0, y: -20, scale: 0.95 }}
-      animate={{ opacity: isDragging ? 0.4 : 1, y: 0, scale: 1 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
       transition={{
         type: 'spring',
@@ -128,6 +126,11 @@ function DraggableBookmarkRow({
         mass: 1,
         opacity: { duration: 0.2 },
       }}
+    >
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      style={{ opacity: isDragging ? 0.4 : 1, transition: 'opacity 0.15s ease' }}
       className={`group relative bg-white border rounded-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.05)] pl-7 pr-4 py-4 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-px transition-shadow duration-200 ${
         isEditing ? 'border-[#2563EB] ring-2 ring-[#2563EB]/10' : 'border-[#E5E7EB]'
       }`}
@@ -311,6 +314,7 @@ function DraggableBookmarkRow({
           </div>
         </div>
       )}
+    </div>
     </motion.div>
   )
 }
