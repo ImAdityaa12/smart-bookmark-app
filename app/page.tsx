@@ -1,7 +1,7 @@
 'use client'
 
 import { getCurrentUser } from '@/app/actions'
-import { BookmarkList } from '@/components/bookmark-list'
+import { BookmarkList, BookmarkDragOverlay } from '@/components/bookmark-list'
 import { BookmarkSkeleton } from '@/components/bookmark-skeleton'
 import { Header } from '@/components/header'
 import { SearchBar } from '@/components/search-bar'
@@ -9,15 +9,19 @@ import { RecentBookmarksGrid } from '@/components/recent-bookmarks-grid'
 import { PaginationControls } from '@/components/pagination-controls'
 import { FloatingActionButton } from '@/components/floating-action-button'
 import { BookmarkModal } from '@/components/bookmark-modal'
+import { FolderSection } from '@/components/folder-section'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBookmarks } from '@/hooks/use-bookmarks'
+import { useFolders } from '@/hooks/use-folders'
 import { motion } from 'framer-motion'
 import { User } from '@supabase/supabase-js'
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core'
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [activeDragBookmarkId, setActiveDragBookmarkId] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -50,6 +54,22 @@ export default function Home() {
     changePage
   } = useBookmarks(user)
 
+  const {
+    folders,
+    selectedFolderId,
+    folderBookmarks,
+    folderLoading,
+    folderTotalCount,
+    folderCurrentPage,
+    folderTotalPages,
+    selectFolder,
+    changeFolderPage,
+    createFolder,
+    renameFolder,
+    deleteFolder,
+    addBookmarkToFolder,
+  } = useFolders(user)
+
   const handleBookmarkAdded = useCallback((newBookmark: { url: string; title: string; is_quick_access: boolean }) => {
     createBookmark(newBookmark)
     setShowAddModal(false)
@@ -70,14 +90,44 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [showAddModal])
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const bookmarkId = event.active.data.current?.bookmarkId as string | undefined
+    if (bookmarkId) setActiveDragBookmarkId(bookmarkId)
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragBookmarkId(null)
+    const { active, over } = event
+    if (!over) return
+
+    const bookmarkId = active.data.current?.bookmarkId as string | undefined
+    const folderId = over.id as string
+
+    if (bookmarkId && folderId && folders.some((f) => f.id === folderId)) {
+      addBookmarkToFolder(bookmarkId, folderId)
+    }
+  }
+
+  // Determine which bookmark list to display
+  const displayBookmarks = selectedFolderId ? folderBookmarks : bookmarks
+  const displayLoading = selectedFolderId ? folderLoading : (searching || isSwitchingPage)
+  const displayTotalCount = selectedFolderId ? folderTotalCount : totalCount
+  const displayCurrentPage = selectedFolderId ? folderCurrentPage : currentPage
+  const displayTotalPages = selectedFolderId ? folderTotalPages : totalPages
+  const displayChangePage = selectedFolderId ? changeFolderPage : changePage
+
+  const activeDragBookmark = activeDragBookmarkId
+    ? (bookmarks.find((b) => b.id === activeDragBookmarkId) ?? folderBookmarks.find((b) => b.id === activeDragBookmarkId) ?? null)
+    : null
+
   if (!user || loading) {
     return (
       <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-6">
         <div className="flex flex-col items-center max-w-sm w-full text-center">
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ 
-              scale: [0.8, 1.1, 1], 
+            animate={{
+              scale: [0.8, 1.1, 1],
               opacity: 1,
               rotate: [0, -5, 5, 0]
             }}
@@ -88,7 +138,7 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
             </svg>
           </motion.div>
-          
+
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -97,7 +147,7 @@ export default function Home() {
             <h2 className="text-xl font-bold text-[#111827] mb-2">Smart Bookmarks</h2>
             <div className="flex items-center justify-center gap-1.5">
               <span className="text-[14px] text-[#6B7280] font-medium">Setting up your collection</span>
-              <motion.span 
+              <motion.span
                 animate={{ opacity: [0, 1, 0] }}
                 transition={{ repeat: Infinity, duration: 1.5, times: [0, 0.5, 1] }}
                 className="text-[#2563EB]"
@@ -107,20 +157,20 @@ export default function Home() {
             </div>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ width: 0 }}
             animate={{ width: "100%" }}
             transition={{ duration: 2, ease: "easeInOut" }}
             className="h-1 bg-[#E5E7EB] rounded-full mt-8 overflow-hidden relative w-48"
           >
-            <motion.div 
-              animate={{ 
+            <motion.div
+              animate={{
                 x: ["-100%", "100%"]
               }}
-              transition={{ 
-                repeat: Infinity, 
-                duration: 1.5, 
-                ease: "linear" 
+              transition={{
+                repeat: Infinity,
+                duration: 1.5,
+                ease: "linear"
               }}
               className="absolute inset-0 bg-[#2563EB] w-1/2"
             />
@@ -131,68 +181,89 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F3F4F6]">
-      <div className="max-w-[640px] mx-auto px-5 py-8">
-        <Header 
-          email={user.email ?? ''} 
-          onAddBookmark={() => setShowAddModal(true)} 
-        />
-
-        {!searchQuery && !searching && !isSwitchingPage && (
-          <RecentBookmarksGrid 
-            bookmarks={quickAccessBookmarks} 
-            onRemove={toggleQuickAccess} 
+    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="min-h-screen bg-[#F3F4F6]">
+        <div className="max-w-[640px] mx-auto px-5 py-8">
+          <Header
+            email={user.email ?? ''}
+            onAddBookmark={() => setShowAddModal(true)}
           />
-        )}
 
-        <SearchBar
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searching={searching}
-          totalCount={totalCount}
-          hasBookmarks={bookmarks.length > 0 || isSwitchingPage}
-        />
-
-        {(bookmarks.length > 0 || searchQuery) && (
-          <div className="flex items-center justify-between mb-3 mt-6">
-            <h3 className="text-[13px] font-medium text-[#6B7280] uppercase tracking-wide">
-              {searchQuery ? 'Search Results' : 'Recently Added'}
-            </h3>
-            <span className="text-[12px] text-[#6B7280] font-medium">
-              {totalCount} total
-            </span>
-          </div>
-        )}
-
-        <div>
-          {searching || isSwitchingPage ? (
-            <BookmarkSkeleton />
-          ) : (
-            <BookmarkList 
-              bookmarks={bookmarks} 
-              onDelete={deleteBookmark} 
-              onEdit={editBookmark} 
-              onToggleQuickAccess={toggleQuickAccess}
-              isSearching={!!searchQuery.trim()} 
+          {!searchQuery && !searching && !isSwitchingPage && !selectedFolderId && (
+            <RecentBookmarksGrid
+              bookmarks={quickAccessBookmarks}
+              onRemove={toggleQuickAccess}
             />
           )}
+
+          <FolderSection
+            folders={folders}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={selectFolder}
+            onCreateFolder={createFolder}
+            onRenameFolder={(id, name, color) => renameFolder(id, name, color)}
+            onDeleteFolder={deleteFolder}
+          />
+
+          <SearchBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            searching={searching}
+            totalCount={displayTotalCount}
+            hasBookmarks={displayBookmarks.length > 0 || isSwitchingPage}
+          />
+
+          {(displayBookmarks.length > 0 || searchQuery || selectedFolderId) && (
+            <div className="flex items-center justify-between mb-3 mt-6">
+              <h3 className="text-[13px] font-medium text-[#6B7280] uppercase tracking-wide">
+                {selectedFolderId
+                  ? folders.find((f) => f.id === selectedFolderId)?.name ?? 'Folder'
+                  : searchQuery
+                  ? 'Search Results'
+                  : 'Recently Added'}
+              </h3>
+              <span className="text-[12px] text-[#6B7280] font-medium">
+                {displayTotalCount} total
+              </span>
+            </div>
+          )}
+
+          <div>
+            {displayLoading ? (
+              <BookmarkSkeleton />
+            ) : (
+              <BookmarkList
+                bookmarks={displayBookmarks}
+                onDelete={deleteBookmark}
+                onEdit={editBookmark}
+                onToggleQuickAccess={toggleQuickAccess}
+                isSearching={!!searchQuery.trim()}
+              />
+            )}
+          </div>
+
+          <PaginationControls
+            currentPage={displayCurrentPage}
+            totalPages={displayTotalPages}
+            onPageChange={displayChangePage}
+          />
         </div>
 
-        <PaginationControls
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={changePage}
-        />
+        <FloatingActionButton onClick={() => setShowAddModal(true)} />
+
+        {showAddModal && (
+          <BookmarkModal
+            onClose={() => setShowAddModal(false)}
+            onBookmarkAdded={handleBookmarkAdded}
+          />
+        )}
       </div>
 
-      <FloatingActionButton onClick={() => setShowAddModal(true)} />
-
-      {showAddModal && (
-        <BookmarkModal 
-          onClose={() => setShowAddModal(false)} 
-          onBookmarkAdded={handleBookmarkAdded} 
-        />
-      )}
-    </div>
+      <DragOverlay>
+        {activeDragBookmark ? (
+          <BookmarkDragOverlay bookmark={activeDragBookmark} />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   )
 }

@@ -1,6 +1,5 @@
 'use client'
 
-import { Bookmark } from '@/types/database.types'
 import { BookmarkWithClient } from '@/hooks/use-bookmarks'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useMemo } from 'react'
@@ -116,12 +115,19 @@ export function RecentBookmarksGrid({ bookmarks, onRemove }: RecentBookmarksGrid
                     className="flex flex-col items-center gap-2.5"
                   >
                     <div className="relative">
-                      <div className="w-16 h-16 bg-white rounded-[22%] shadow-[0_4px_12px_rgba(0,0,0,0.08)] flex items-center justify-center border border-[#E5E7EB] group-hover:border-[#2563EB] group-hover:shadow-[0_8px_20px_rgba(37,99,235,0.15)] transition-all duration-300 overflow-hidden relative p-3.5">
-                        {faviconUrl ? (
+                      <div className="w-16 h-16 bg-white rounded-[22%] shadow-[0_4px_12px_rgba(0,0,0,0.08)] flex items-center justify-center border border-[#E5E7EB] group-hover:border-[#2563EB] group-hover:shadow-[0_8px_20px_rgba(37,99,235,0.15)] transition-all duration-300 overflow-hidden relative p-0">
+                        {bookmark.image_url ? (
+                          <img 
+                            src={bookmark.image_url} 
+                            alt="" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => (e.currentTarget.src = faviconUrl || '')}
+                          />
+                        ) : faviconUrl ? (
                           <img 
                             src={faviconUrl} 
                             alt="" 
-                            className="w-full h-full object-contain"
+                            className="w-1/2 h-1/2 object-contain"
                             onError={(e) => (e.currentTarget.style.display = 'none')}
                           />
                         ) : (
