@@ -1,10 +1,14 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Home, Folder, ChevronRight } from 'lucide-react'
+import { Home, Folder, ChevronRight, User as UserIcon } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { getCurrentUser } from '@/app/actions'
+import { User } from '@supabase/supabase-js'
+import { SignOutButton } from '@/components/sign-out-button'
 
 const navItems = [
   { name: 'Homepage', href: '/', icon: Home },
@@ -13,6 +17,15 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    async function getUser() {
+      const user = await getCurrentUser()
+      setUser(user)
+    }
+    getUser()
+  }, [])
 
   return (
     <div className="w-64 bg-white border-r border-[#E5E7EB] flex flex-col h-screen sticky top-0">
@@ -69,13 +82,30 @@ export function Sidebar() {
         </nav>
       </div>
 
-      <div className="mt-auto p-6 border-t border-[#F3F4F6]">
+      <div className="mt-auto p-6 space-y-6">
         <div className="bg-gray-50 rounded-2xl p-4">
           <p className="text-[12px] font-medium text-[#6B7280] mb-1">Storage Usage</p>
           <div className="h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden mb-2">
             <div className="h-full bg-[#2563EB] w-[45%] rounded-full" />
           </div>
           <p className="text-[11px] text-[#9CA3AF]">45% of 1000 bookmarks</p>
+        </div>
+
+        <div className="pt-6 border-t border-[#F3F4F6]">
+          <div className="flex items-center gap-3 mb-4 px-1">
+            <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-[#2563EB]">
+              <UserIcon className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-[#111827] truncate">
+                {user?.email?.split('@')[0] || 'User'}
+              </p>
+              <p className="text-[11px] text-[#6B7280] truncate">
+                {user?.email || 'Loading...'}
+              </p>
+            </div>
+          </div>
+          <SignOutButton />
         </div>
       </div>
     </div>

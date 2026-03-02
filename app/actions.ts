@@ -355,7 +355,7 @@ export async function getFoldersWithBookmarksAction() {
     const folderBookmarks = associations
       .filter(a => a.folder_id === folder.id)
       .map(a => a.bookmarks)
-      .filter(Boolean) as any[]
+      .filter(Boolean) as unknown as Bookmark[]
 
     return {
       ...folder,

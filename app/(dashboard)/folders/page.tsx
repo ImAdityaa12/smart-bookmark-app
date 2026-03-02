@@ -1,14 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { DndContext, DragOverlay, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors, DragStartEvent, DragEndEvent, useDroppable, useDraggable } from '@dnd-kit/core'
-import { motion } from 'framer-motion'
-import { getFoldersWithBookmarksAction, moveBookmarkAction, getCurrentUser } from '@/app/actions'
+import { motion, AnimatePresence } from 'framer-motion'
+import { getFoldersWithBookmarksAction, moveBookmarkAction, getCurrentUser, createFolderAction, renameFolderAction, deleteFolderAction } from '@/app/actions'
 import { Folder, Bookmark } from '@/types/database.types'
 import { Header } from '@/components/header'
-import { MoreVertical, ExternalLink, Plus } from 'lucide-react'
+import { MoreVertical, ExternalLink, Plus, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { User } from '@supabase/supabase-js'
+import { FolderModal } from '@/components/folder-modal'
+import { BookmarkModal } from '@/components/bookmark-modal'
 
 type FolderWithBookmarks = Folder & {
   bookmarks: Bookmark[]
@@ -20,6 +22,11 @@ export default function FoldersPage() {
   const [activeBookmark, setActiveBookmark] = useState<Bookmark | null>(null)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  
+  // Modal states
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showAddBookmarkModal, setShowAddBookmarkModal] = useState(false)
+  const [editingFolder, setEditingFolder] = useState<FolderWithBookmarks | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -30,18 +37,51 @@ export default function FoldersPage() {
     useSensor(KeyboardSensor)
   )
 
+  const fetchFolders = async () => {
+    const data = await getFoldersWithBookmarksAction()
+    setFolders(data)
+  }
+
   useEffect(() => {
     async function init() {
       const user = await getCurrentUser()
       setUser(user)
       if (user) {
-        const data = await getFoldersWithBookmarksAction()
-        setFolders(data)
+        await fetchFolders()
       }
       setLoading(false)
     }
     init()
   }, [])
+
+  const handleCreateFolder = async (name: string, color: string) => {
+    try {
+      await createFolderAction(name, color)
+      await fetchFolders()
+    } catch (error) {
+      console.error('Failed to create folder:', error)
+    }
+  }
+
+  const handleRenameFolder = async (name: string, color: string) => {
+    if (!editingFolder) return
+    try {
+      await renameFolderAction(editingFolder.id, name, color)
+      await fetchFolders()
+    } catch (error) {
+      console.error('Failed to rename folder:', error)
+    }
+  }
+
+  const handleDeleteFolder = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this folder? All bookmarks will be removed from this folder.')) return
+    try {
+      await deleteFolderAction(id)
+      await fetchFolders()
+    } catch (error) {
+      console.error('Failed to delete folder:', error)
+    }
+  }
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -84,8 +124,7 @@ export default function FoldersPage() {
     } catch (error) {
       console.error('Failed to move bookmark:', error)
       // Revert or refetch
-      const data = await getFoldersWithBookmarksAction()
-      setFolders(data)
+      await fetchFolders()
     }
   }
 
@@ -97,12 +136,14 @@ export default function FoldersPage() {
     <div className="h-screen flex flex-col overflow-hidden">
       <div className="px-8 pt-8 pb-4">
         <Header 
-          email={user?.email || ''} 
-          onAddBookmark={() => {}} // TODO: Implement add modal if needed
+          onAddBookmark={() => setShowAddBookmarkModal(true)}
         />
         <div className="flex items-center justify-between mt-6">
           <h1 className="text-2xl font-bold text-[#111827]">Folders Kanban</h1>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] rounded-xl text-[14px] font-semibold text-[#374151] hover:bg-gray-50 transition-colors shadow-sm">
+          <button 
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] rounded-xl text-[14px] font-semibold text-[#374151] hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+          >
             <Plus className="w-4 h-4" />
             New Folder
           </button>
@@ -118,7 +159,12 @@ export default function FoldersPage() {
         >
           <div className="flex gap-6 h-full min-w-max pb-4">
             {folders.map(folder => (
-              <KanbanColumn key={folder.id} folder={folder} />
+              <KanbanColumn 
+                key={folder.id} 
+                folder={folder} 
+                onRename={() => setEditingFolder(folder)}
+                onDelete={() => handleDeleteFolder(folder.id)}
+              />
             ))}
           </div>
 
@@ -143,20 +189,72 @@ export default function FoldersPage() {
           </DragOverlay>
         </DndContext>
       </div>
+
+      {showCreateModal && (
+        <FolderModal
+          mode="create"
+          onSubmit={handleCreateFolder}
+          onClose={() => setShowCreateModal(false)}
+        />
+      )}
+
+      {editingFolder && (
+        <FolderModal
+          mode="rename"
+          initialName={editingFolder.name}
+          initialColor={editingFolder.color}
+          onSubmit={handleRenameFolder}
+          onClose={() => setEditingFolder(null)}
+        />
+      )}
+
+      {showAddBookmarkModal && (
+        <BookmarkModal
+          onClose={() => setShowAddBookmarkModal(false)}
+          onBookmarkAdded={async () => {
+            await fetchFolders()
+            setShowAddBookmarkModal(false)
+          }}
+        />
+      )}
     </div>
   )
 }
 
-function KanbanColumn({ folder }: { folder: FolderWithBookmarks }) {
+function KanbanColumn({ 
+  folder, 
+  onRename, 
+  onDelete 
+}: { 
+  folder: FolderWithBookmarks
+  onRename: () => void
+  onDelete: () => void
+}) {
   const { setNodeRef, isOver } = useDroppable({
     id: folder.id,
   })
+  
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (buttonRef.current?.contains(e.target as Node)) return
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpen])
 
   return (
     <div 
       ref={setNodeRef}
       className={cn(
-        "w-[300px] flex flex-col bg-[#F9FAFB] rounded-2xl border transition-colors duration-200",
+        "w-[300px] flex flex-col bg-[#F9FAFB] rounded-2xl border transition-colors duration-200 relative",
         isOver ? "bg-blue-50/50 border-blue-200" : "border-[#E5E7EB]"
       )}
     >
@@ -173,9 +271,48 @@ function KanbanColumn({ folder }: { folder: FolderWithBookmarks }) {
             {folder.bookmark_count}
           </span>
         </div>
-        <button className="text-gray-400 hover:text-gray-600">
-          <MoreVertical className="w-4 h-4" />
-        </button>
+        <div className="relative">
+          <button 
+            ref={buttonRef}
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+          
+          <AnimatePresence>
+            {menuOpen && (
+              <motion.div
+                ref={menuRef}
+                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                className="absolute right-0 mt-2 w-40 bg-white border border-[#E5E7EB] rounded-xl shadow-lg py-1 z-50"
+              >
+                <button
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onRename()
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374151] hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  Rename
+                </button>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onDelete()
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-3 custom-scrollbar">

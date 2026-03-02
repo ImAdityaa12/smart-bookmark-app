@@ -195,9 +195,8 @@ export default function Home() {
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="max-w-[640px] mx-auto px-5 py-8">
+      <div className="w-full px-8 py-8">
           <Header
-            email={user.email ?? ''}
             onAddBookmark={() => setShowAddModal(true)}
           />
 
