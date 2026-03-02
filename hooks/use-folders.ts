@@ -14,7 +14,7 @@ import {
 
 export type FolderWithClient = Folder & { clientId: string }
 
-export function useFolders(user: User | null) {
+export function useFolders(user: User | null, searchQuery: string = '') {
   const [folders, setFolders] = useState<FolderWithClient[]>([])
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [folderBookmarks, setFolderBookmarks] = useState<BookmarkWithClient[]>([])
@@ -38,6 +38,7 @@ export function useFolders(user: User | null) {
   }, [user, fetchFolders])
 
   const fetchFolderBookmarks = useCallback(async (folderId: string, page = 1, q?: string) => {
+    if (folderId.startsWith('temp-folder-')) return
     setFolderLoading(true)
     try {
       const data = await getBookmarksInFolderAction(folderId, page, 10, q)
@@ -52,24 +53,34 @@ export function useFolders(user: User | null) {
     }
   }, [])
 
+  // Refetch when search query changes if a folder is selected
+  useEffect(() => {
+    if (selectedFolderId) {
+      const timer = setTimeout(() => {
+        fetchFolderBookmarks(selectedFolderId, 1, searchQuery)
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [selectedFolderId, searchQuery, fetchFolderBookmarks])
+
   const selectFolder = useCallback((id: string | null) => {
     setSelectedFolderId(id)
     setFolderCurrentPage(1)
     if (id) {
-      fetchFolderBookmarks(id, 1)
+      fetchFolderBookmarks(id, 1, searchQuery)
     } else {
       setFolderBookmarks([])
       setFolderTotalCount(0)
       setFolderTotalPages(1)
     }
-  }, [fetchFolderBookmarks])
+  }, [fetchFolderBookmarks, searchQuery])
 
   const changeFolderPage = useCallback((page: number) => {
     if (!selectedFolderId) return
     setFolderCurrentPage(page)
-    fetchFolderBookmarks(selectedFolderId, page)
+    fetchFolderBookmarks(selectedFolderId, page, searchQuery)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [selectedFolderId, fetchFolderBookmarks])
+  }, [selectedFolderId, fetchFolderBookmarks, searchQuery])
 
   const createFolder = useCallback(async (name: string, color: string) => {
     const tempId = 'temp-folder-' + Date.now()
@@ -97,6 +108,8 @@ export function useFolders(user: User | null) {
   }, [user])
 
   const renameFolder = useCallback(async (id: string, name: string, color: string) => {
+    if (id.startsWith('temp-folder-')) return
+
     setFolders((prev) => prev.map((f) => (f.id === id ? { ...f, name, color } : f)))
 
     try {
@@ -109,6 +122,9 @@ export function useFolders(user: User | null) {
   }, [fetchFolders])
 
   const deleteFolder = useCallback(async (id: string) => {
+    if (id.startsWith('temp-folder-')) return
+    if (!confirm('Are you sure you want to delete this folder? Bookmarks inside will not be deleted.')) return
+
     setFolders((prev) => prev.filter((f) => f.id !== id))
     if (selectedFolderId === id) {
       setSelectedFolderId(null)
@@ -137,7 +153,7 @@ export function useFolders(user: User | null) {
       await addBookmarkToFolderAction(bookmarkId, folderId)
       // If viewing this folder, refresh bookmarks
       if (selectedFolderId === folderId) {
-        fetchFolderBookmarks(folderId, folderCurrentPage)
+        fetchFolderBookmarks(folderId, folderCurrentPage, searchQuery)
       }
     } catch (error) {
       console.error('Error adding bookmark to folder:', error)
@@ -167,7 +183,7 @@ export function useFolders(user: User | null) {
     } catch (error) {
       console.error('Error removing bookmark from folder:', error)
       if (selectedFolderId === folderId) {
-        fetchFolderBookmarks(folderId, folderCurrentPage)
+        fetchFolderBookmarks(folderId, folderCurrentPage, searchQuery)
       }
       fetchFolders()
       alert('Failed to remove bookmark from folder: ' + (error as Error).message)
